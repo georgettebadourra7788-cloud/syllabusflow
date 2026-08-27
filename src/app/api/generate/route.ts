@@ -30,6 +30,6 @@ same syllabus that a student should complete first (empty array if none).`,
     return NextResponse.json(object);
   } catch (error) {
     console.error("Syllabus generation failed", error);
-    return NextResponse.json({ error: "Failed to generate syllabus" }, { status: 500 });
+    return Response.json({ error: String(error) }, { status: 500 });
   }
 }
