@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
   try {
     const { object } = await generateObject({
-      model: google("gemini-2.5-flash"),
+      model: google("gemini-2.0-flash"),
       schema: syllabusSchema,
       prompt: `Create a ${weeks}-week course syllabus on "${topic}" for a ${skillLevel} audience.
 
