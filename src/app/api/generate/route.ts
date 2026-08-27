@@ -3,6 +3,10 @@ import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 import { generateRequestSchema, syllabusSchema } from "@/lib/schemas/syllabus";
 
+// A full structured syllabus can take longer to generate than Vercel's
+// default serverless function timeout (10s on Hobby) allows.
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const parsed = generateRequestSchema.safeParse(body);
