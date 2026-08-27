@@ -7,6 +7,11 @@ import { generateRequestSchema, syllabusSchema } from "@/lib/schemas/syllabus";
 // default serverless function timeout (10s on Hobby) allows.
 export const maxDuration = 60;
 
+// Tried in order. gemini-flash-latest sometimes returns "high demand" errors
+// during traffic spikes on Google's side; falling back to a pinned model
+// keeps generation working through those windows instead of failing outright.
+const MODEL_CANDIDATES = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-2.5-flash-lite"] as const;
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const parsed = generateRequestSchema.safeParse(body);
@@ -16,24 +21,32 @@ export async function POST(request: Request) {
   }
 
   const { topic, weeks, skillLevel } = parsed.data;
-
-  try {
-    const { object } = await generateObject({
-      model: google("gemini-flash-latest"),
-      schema: syllabusSchema,
-      prompt: `Create a ${weeks}-week course syllabus on "${topic}" for a ${skillLevel} audience.
+  const prompt = `Create a ${weeks}-week course syllabus on "${topic}" for a ${skillLevel} audience.
 
 Break the course into weekly modules. Each module should have a title and a
 list of lessons. Each lesson needs a unique "key" (a short slug, stable
 across the response, e.g. "week1-intro"), a title, a one- or two-sentence
 summary, an array of concrete learning objectives, and an array of
 prerequisiteLessonKeys referencing the "key" of any earlier lesson in this
-same syllabus that a student should complete first (empty array if none).`,
-    });
+same syllabus that a student should complete first (empty array if none).`;
 
-    return NextResponse.json(object);
-  } catch (error) {
-    console.error("Syllabus generation failed", error);
-    return Response.json({ error: String(error) }, { status: 500 });
+  let lastError: unknown;
+
+  for (const modelId of MODEL_CANDIDATES) {
+    try {
+      const { object } = await generateObject({
+        model: google(modelId),
+        schema: syllabusSchema,
+        prompt,
+        maxRetries: 1,
+      });
+
+      return NextResponse.json(object);
+    } catch (error) {
+      console.error(`Syllabus generation failed with ${modelId}`, error);
+      lastError = error;
+    }
   }
+
+  return Response.json({ error: String(lastError) }, { status: 500 });
 }
