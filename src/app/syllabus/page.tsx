@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import ReactFlow, { Background, Controls, type Edge, type Node } from "reactflow";
 import "reactflow/dist/style.css";
-import { getFirebaseDb } from "@/lib/firebase";
 import { Navbar } from "@/components/Navbar";
 import type { Syllabus } from "@/lib/schemas/syllabus";
 
@@ -55,6 +53,44 @@ function buildFlow(syllabus: Syllabus): { nodes: Node[]; edges: Edge[] } {
   return { nodes, edges };
 }
 
+function buildMarkdown(syllabus: Syllabus): string {
+  const lines: string[] = [
+    `# ${syllabus.courseTitle}`,
+    "",
+    `${syllabus.durationWeeks} weeks · ${syllabus.targetAudience}`,
+    "",
+  ];
+
+  syllabus.modules.forEach((mod, i) => {
+    lines.push(`## ${i + 1}. ${mod.title}`, "");
+
+    mod.lessons.forEach((lesson) => {
+      lines.push(`### ${lesson.title}`, "", lesson.summary, "");
+
+      if (lesson.learningObjectives.length > 0) {
+        lines.push("**Objectives:**");
+        lesson.learningObjectives.forEach((objective) => lines.push(`- ${objective}`));
+        lines.push("");
+      }
+
+      if (lesson.prerequisiteLessonKeys.length > 0) {
+        lines.push(`**Requires:** ${lesson.prerequisiteLessonKeys.join(", ")}`, "");
+      }
+    });
+  });
+
+  return lines.join("\n");
+}
+
+function slugify(text: string): string {
+  return (
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "") || "syllabus"
+  );
+}
+
 function buildLessonTitleLookup(syllabus: Syllabus): Map<string, string> {
   const lookup = new Map<string, string>();
   syllabus.modules.forEach((mod) => {
@@ -73,9 +109,8 @@ export default function SyllabusPage() {
   const [weeks, setWeeks] = useState(6);
   const [skillLevel, setSkillLevel] = useState<(typeof SKILL_LEVELS)[number]>("beginner");
   const [syllabus, setSyllabus] = useState<Syllabus | null>(null);
-  const [busy, setBusy] = useState<"idle" | "generating" | "saving">("idle");
+  const [busy, setBusy] = useState<"idle" | "generating">("idle");
   const [error, setError] = useState<string | null>(null);
-  const [savedId, setSavedId] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   useEffect(() => {
@@ -92,7 +127,6 @@ export default function SyllabusPage() {
     event.preventDefault();
     setBusy("generating");
     setError(null);
-    setSavedId(null);
     setSyllabus(null);
 
     try {
@@ -124,22 +158,18 @@ export default function SyllabusPage() {
     }
   }
 
-  async function handleSave() {
+  function handleDownload() {
     if (!syllabus) return;
-    setBusy("saving");
-    setError(null);
 
-    try {
-      const docRef = await addDoc(collection(getFirebaseDb(), "syllabi"), {
-        ...syllabus,
-        createdAt: serverTimestamp(),
-      });
-      setSavedId(docRef.id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't save to Firebase");
-    } finally {
-      setBusy("idle");
-    }
+    const blob = new Blob([buildMarkdown(syllabus)], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${slugify(syllabus.courseTitle)}.md`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -310,19 +340,13 @@ export default function SyllabusPage() {
               ))}
             </div>
 
-            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <div className="mt-8 flex justify-center">
               <button
-                onClick={handleSave}
-                disabled={busy === "saving"}
-                className="rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-indigo-200 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-300 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none"
+                onClick={handleDownload}
+                className="rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-indigo-200 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-300"
               >
-                {busy === "saving" ? "Saving…" : "Save to Firebase"}
+                Download as Markdown
               </button>
-              {savedId && (
-                <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700">
-                  Saved as {savedId}
-                </span>
-              )}
             </div>
           </section>
         )}
