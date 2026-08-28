@@ -7,10 +7,11 @@ import { generateRequestSchema, syllabusSchema } from "@/lib/schemas/syllabus";
 // default serverless function timeout (10s on Hobby) allows.
 export const maxDuration = 60;
 
-// Tried in order. gemini-flash-latest sometimes returns "high demand" errors
-// during traffic spikes on Google's side; falling back to a pinned model
-// keeps generation working through those windows instead of failing outright.
-const MODEL_CANDIDATES = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-2.5-flash-lite"] as const;
+// Tried in order. These are Google's rolling aliases, not pinned generations
+// (e.g. gemini-2.5-flash) — pinned model IDs have been getting cut off from
+// new API keys/projects as Google rotates generations, while the aliases are
+// designed to keep resolving to a current, available model.
+const MODEL_CANDIDATES = ["gemini-flash-latest", "gemini-flash-lite-latest"] as const;
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -30,7 +31,7 @@ summary, an array of concrete learning objectives, and an array of
 prerequisiteLessonKeys referencing the "key" of any earlier lesson in this
 same syllabus that a student should complete first (empty array if none).`;
 
-  let lastError: unknown;
+  const attempts: string[] = [];
 
   for (const modelId of MODEL_CANDIDATES) {
     try {
@@ -44,9 +45,9 @@ same syllabus that a student should complete first (empty array if none).`;
       return NextResponse.json(object);
     } catch (error) {
       console.error(`Syllabus generation failed with ${modelId}`, error);
-      lastError = error;
+      attempts.push(`${modelId}: ${String(error)}`);
     }
   }
 
-  return Response.json({ error: String(lastError) }, { status: 500 });
+  return Response.json({ error: attempts.join(" | ") }, { status: 500 });
 }
