@@ -39,7 +39,7 @@ same syllabus that a student should complete first (empty array if none).`;
         model: google(modelId),
         schema: syllabusSchema,
         prompt,
-        maxRetries: 1,
+        maxRetries: 0,
       });
 
       return NextResponse.json(object);
