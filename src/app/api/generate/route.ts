@@ -13,6 +13,11 @@ export const maxDuration = 60;
 // designed to keep resolving to a current, available model.
 const MODEL_CANDIDATES = ["gemini-flash-latest", "gemini-flash-lite-latest"] as const;
 
+// generateObject has no built-in per-call timeout, so a single slow/hung
+// model call can silently eat the entire route's 60s budget and starve the
+// fallback candidates. Bound each attempt explicitly instead.
+const PER_MODEL_TIMEOUT_MS = 25_000;
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const parsed = generateRequestSchema.safeParse(body);
@@ -35,18 +40,25 @@ first (empty array if none). Keep all text brief and to the point.`;
   const attempts: string[] = [];
 
   for (const modelId of MODEL_CANDIDATES) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), PER_MODEL_TIMEOUT_MS);
+
     try {
       const { object } = await generateObject({
         model: google(modelId),
         schema: syllabusSchema,
         prompt,
         maxRetries: 0,
+        abortSignal: controller.signal,
       });
 
       return NextResponse.json(object);
     } catch (error) {
-      console.error(`Syllabus generation failed with ${modelId}`, error);
-      attempts.push(`${modelId}: ${String(error)}`);
+      const timedOut = controller.signal.aborted;
+      console.error(`Syllabus generation failed with ${modelId}${timedOut ? " (timed out)" : ""}`, error);
+      attempts.push(`${modelId}${timedOut ? " (timed out)" : ""}: ${String(error)}`);
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
