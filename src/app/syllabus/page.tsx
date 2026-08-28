@@ -75,13 +75,14 @@ function buildHtmlDocument(syllabus: Syllabus, lessonTitles: Map<string, string>
               .map(
                 (lesson) => `
               <div class="lesson">
-                <p class="lesson-title">${escapeHtml(lesson.title)}</p>
+                <h3 class="lesson-title">${escapeHtml(lesson.title)}</h3>
                 <p class="lesson-summary">${escapeHtml(lesson.summary)}</p>
                 ${
                   lesson.learningObjectives.length > 0
-                    ? `<div class="pills">${lesson.learningObjectives
-                        .map((o) => `<span class="pill">${escapeHtml(o)}</span>`)
-                        .join("")}</div>`
+                    ? `<p class="objectives-label">Objectives</p>
+                       <ul class="objectives">${lesson.learningObjectives
+                        .map((o) => `<li>${escapeHtml(o)}</li>`)
+                        .join("")}</ul>`
                     : ""
                 }
                 ${
@@ -119,6 +120,7 @@ function buildHtmlDocument(syllabus: Syllabus, lessonTitles: Map<string, string>
   main { max-width: 720px; margin: 0 auto; }
   h1 { font-size: 1.875rem; font-weight: 700; margin: 0 0 0.75rem; }
   h2 { font-size: 1.125rem; font-weight: 600; margin: 0; }
+  h3.lesson-title { font-size: 1rem; font-weight: 600; margin: 0 0 0.375rem; }
   .badges { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 2.5rem; }
   .badge {
     display: inline-flex; align-items: center; border-radius: 9999px;
@@ -136,8 +138,10 @@ function buildHtmlDocument(syllabus: Syllabus, lessonTitles: Map<string, string>
   .lessons { display: flex; flex-direction: column; gap: 1.25rem; padding-left: 2.75rem; }
   .lesson { border-top: 1px solid #f1f5f9; padding-top: 1.25rem; }
   .lesson:first-child { border-top: none; padding-top: 0; }
-  .lesson-title { font-weight: 500; margin: 0 0 0.375rem; }
   .lesson-summary { font-size: 0.875rem; line-height: 1.6; color: #475569; margin: 0 0 0.75rem; }
+  .objectives-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: #94a3b8; margin: 0 0 0.375rem; }
+  .objectives { margin: 0 0 0.75rem; padding-left: 1.25rem; font-size: 0.875rem; line-height: 1.6; color: #334155; }
+  .objectives li { margin-bottom: 0.25rem; }
   .pills { display: flex; flex-wrap: wrap; gap: 0.375rem; }
   .requires { margin-top: 0.75rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; }
   .requires-label { font-size: 0.75rem; font-weight: 500; color: #94a3b8; }
@@ -238,7 +242,7 @@ export default function SyllabusPage() {
     }
   }
 
-  function handleDownload() {
+  function handleDownloadHtml() {
     if (!syllabus || !lessonTitles) return;
 
     const blob = new Blob([buildHtmlDocument(syllabus, lessonTitles)], { type: "text/html;charset=utf-8" });
@@ -250,6 +254,20 @@ export default function SyllabusPage() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  }
+
+  function handleDownloadPdf() {
+    if (!syllabus || !lessonTitles) return;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(buildHtmlDocument(syllabus, lessonTitles));
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+    };
   }
 
   return (
@@ -384,19 +402,19 @@ export default function SyllabusPage() {
                   <ul className="mt-5 grid gap-5 sm:pl-11">
                     {mod.lessons.map((lesson) => (
                       <li key={lesson.key} className="border-t border-slate-100 pt-5 first:border-t-0 first:pt-0">
-                        <p className="font-medium text-slate-900">{lesson.title}</p>
+                        <h4 className="font-semibold text-slate-900">{lesson.title}</h4>
                         <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{lesson.summary}</p>
 
                         {lesson.learningObjectives.length > 0 && (
-                          <div className="mt-3 flex flex-wrap gap-1.5">
-                            {lesson.learningObjectives.map((objective, idx) => (
-                              <span
-                                key={idx}
-                                className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
-                              >
-                                {objective}
-                              </span>
-                            ))}
+                          <div className="mt-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              Objectives
+                            </p>
+                            <ul className="mt-1.5 list-disc space-y-1 pl-5 text-sm text-slate-700">
+                              {lesson.learningObjectives.map((objective, idx) => (
+                                <li key={idx}>{objective}</li>
+                              ))}
+                            </ul>
                           </div>
                         )}
 
@@ -420,14 +438,23 @@ export default function SyllabusPage() {
               ))}
             </div>
 
-            <div className="mt-8 flex justify-center">
+            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <button
-                onClick={handleDownload}
+                onClick={handleDownloadPdf}
                 className="rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-indigo-200 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-300"
               >
-                Download syllabus
+                Download as PDF
+              </button>
+              <button
+                onClick={handleDownloadHtml}
+                className="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50"
+              >
+                Download as HTML
               </button>
             </div>
+            <p className="mt-3 text-center text-xs text-slate-400">
+              PDF opens your browser&apos;s print dialog — choose &quot;Save as PDF&quot; as the destination.
+            </p>
           </section>
         )}
       </main>
