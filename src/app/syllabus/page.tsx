@@ -53,33 +53,113 @@ function buildFlow(syllabus: Syllabus): { nodes: Node[]; edges: Edge[] } {
   return { nodes, edges };
 }
 
-function buildMarkdown(syllabus: Syllabus): string {
-  const lines: string[] = [
-    `# ${syllabus.courseTitle}`,
-    "",
-    `${syllabus.durationWeeks} weeks · ${syllabus.targetAudience}`,
-    "",
-  ];
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
-  syllabus.modules.forEach((mod, i) => {
-    lines.push(`## ${i + 1}. ${mod.title}`, "");
+function buildHtmlDocument(syllabus: Syllabus, lessonTitles: Map<string, string>): string {
+  const modulesHtml = syllabus.modules
+    .map(
+      (mod, i) => `
+        <section class="module">
+          <div class="module-header">
+            <span class="module-number">${i + 1}</span>
+            <h2>${escapeHtml(mod.title)}</h2>
+          </div>
+          <div class="lessons">
+            ${mod.lessons
+              .map(
+                (lesson) => `
+              <div class="lesson">
+                <p class="lesson-title">${escapeHtml(lesson.title)}</p>
+                <p class="lesson-summary">${escapeHtml(lesson.summary)}</p>
+                ${
+                  lesson.learningObjectives.length > 0
+                    ? `<div class="pills">${lesson.learningObjectives
+                        .map((o) => `<span class="pill">${escapeHtml(o)}</span>`)
+                        .join("")}</div>`
+                    : ""
+                }
+                ${
+                  lesson.prerequisiteLessonKeys.length > 0
+                    ? `<div class="requires"><span class="requires-label">Requires:</span> ${lesson.prerequisiteLessonKeys
+                        .map(
+                          (key) =>
+                            `<span class="pill pill-amber">${escapeHtml(lessonTitles.get(key) ?? key)}</span>`,
+                        )
+                        .join("")}</div>`
+                    : ""
+                }
+              </div>`,
+              )
+              .join("")}
+          </div>
+        </section>`,
+    )
+    .join("");
 
-    mod.lessons.forEach((lesson) => {
-      lines.push(`### ${lesson.title}`, "", lesson.summary, "");
-
-      if (lesson.learningObjectives.length > 0) {
-        lines.push("**Objectives:**");
-        lesson.learningObjectives.forEach((objective) => lines.push(`- ${objective}`));
-        lines.push("");
-      }
-
-      if (lesson.prerequisiteLessonKeys.length > 0) {
-        lines.push(`**Requires:** ${lesson.prerequisiteLessonKeys.join(", ")}`, "");
-      }
-    });
-  });
-
-  return lines.join("\n");
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>${escapeHtml(syllabus.courseTitle)}</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 3rem 1.5rem;
+    background: #f8fafc;
+    color: #0f172a;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 1.875rem; font-weight: 700; margin: 0 0 0.75rem; }
+  h2 { font-size: 1.125rem; font-weight: 600; margin: 0; }
+  .badges { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 2.5rem; }
+  .badge {
+    display: inline-flex; align-items: center; border-radius: 9999px;
+    padding: 0.25rem 0.75rem; font-size: 0.75rem; font-weight: 600;
+  }
+  .badge-weeks { background: #eef2ff; color: #4338ca; }
+  .badge-audience { background: #f5f3ff; color: #6d28d9; }
+  .module { background: #fff; border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1.5rem; margin-bottom: 1.5rem; }
+  .module-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
+  .module-number {
+    display: flex; align-items: center; justify-content: center;
+    width: 2rem; height: 2rem; border-radius: 9999px; flex-shrink: 0;
+    background: #eef2ff; color: #4338ca; font-weight: 600; font-size: 0.875rem;
+  }
+  .lessons { display: flex; flex-direction: column; gap: 1.25rem; padding-left: 2.75rem; }
+  .lesson { border-top: 1px solid #f1f5f9; padding-top: 1.25rem; }
+  .lesson:first-child { border-top: none; padding-top: 0; }
+  .lesson-title { font-weight: 500; margin: 0 0 0.375rem; }
+  .lesson-summary { font-size: 0.875rem; line-height: 1.6; color: #475569; margin: 0 0 0.75rem; }
+  .pills { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+  .requires { margin-top: 0.75rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; }
+  .requires-label { font-size: 0.75rem; font-weight: 500; color: #94a3b8; }
+  .pill { display: inline-flex; align-items: center; border-radius: 9999px; background: #f1f5f9; color: #475569; padding: 0.25rem 0.625rem; font-size: 0.75rem; font-weight: 500; }
+  .pill-amber { background: #fffbeb; color: #b45309; }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .module { break-inside: avoid; box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>${escapeHtml(syllabus.courseTitle)}</h1>
+  <div class="badges">
+    <span class="badge badge-weeks">${syllabus.durationWeeks} weeks</span>
+    <span class="badge badge-audience">${escapeHtml(syllabus.targetAudience)}</span>
+  </div>
+  ${modulesHtml}
+</main>
+</body>
+</html>`;
 }
 
 function slugify(text: string): string {
@@ -159,13 +239,13 @@ export default function SyllabusPage() {
   }
 
   function handleDownload() {
-    if (!syllabus) return;
+    if (!syllabus || !lessonTitles) return;
 
-    const blob = new Blob([buildMarkdown(syllabus)], { type: "text/markdown;charset=utf-8" });
+    const blob = new Blob([buildHtmlDocument(syllabus, lessonTitles)], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${slugify(syllabus.courseTitle)}.md`;
+    link.download = `${slugify(syllabus.courseTitle)}.html`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -345,7 +425,7 @@ export default function SyllabusPage() {
                 onClick={handleDownload}
                 className="rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-indigo-200 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-300"
               >
-                Download as Markdown
+                Download syllabus
               </button>
             </div>
           </section>
