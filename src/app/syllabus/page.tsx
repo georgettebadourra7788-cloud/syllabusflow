@@ -101,17 +101,24 @@ export default function SyllabusPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic, weeks, skillLevel }),
       });
+      console.log("[generate] response status:", response.status);
 
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
+        console.error("[generate] error response body:", body);
         throw new Error(
-          typeof body.error === "string" ? body.error : "Couldn't generate a syllabus. Try again.",
+          typeof body.error === "string" && body.error.length > 0
+            ? body.error
+            : "Couldn't generate a syllabus. Try again.",
         );
       }
 
-      setSyllabus((await response.json()) as Syllabus);
+      const data = (await response.json()) as Syllabus;
+      console.log("[generate] success:", data);
+      setSyllabus(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      console.error("[generate] caught error:", err);
+      setError(err instanceof Error && err.message ? err.message : "Something went wrong");
     } finally {
       setBusy("idle");
     }
