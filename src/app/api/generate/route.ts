@@ -24,12 +24,13 @@ export async function POST(request: Request) {
   const { topic, weeks, skillLevel } = parsed.data;
   const prompt = `Create a ${weeks}-week course syllabus on "${topic}" for a ${skillLevel} audience.
 
-Break the course into weekly modules. Each module should have a title and a
-list of lessons. Each lesson needs a unique "key" (a short slug, stable
-across the response, e.g. "week1-intro"), a title, a one- or two-sentence
-summary, an array of concrete learning objectives, and an array of
-prerequisiteLessonKeys referencing the "key" of any earlier lesson in this
-same syllabus that a student should complete first (empty array if none).`;
+Break the course into weekly modules, one module per week, with 2-3 lessons
+each. Each module should have a title and a list of lessons. Each lesson
+needs a unique "key" (a short slug, stable across the response, e.g.
+"week1-intro"), a title, a one-sentence summary, 2-3 concise learning
+objectives, and an array of prerequisiteLessonKeys referencing the "key" of
+any earlier lesson in this same syllabus that a student should complete
+first (empty array if none). Keep all text brief and to the point.`;
 
   const attempts: string[] = [];
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import ReactFlow, { Background, Controls, type Edge, type Node } from "reactflow";
 import "reactflow/dist/style.css";
@@ -76,6 +76,14 @@ export default function SyllabusPage() {
   const [busy, setBusy] = useState<"idle" | "generating" | "saving">("idle");
   const [error, setError] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    if (busy !== "generating") return;
+    setElapsedSeconds(0);
+    const interval = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+    return () => clearInterval(interval);
+  }, [busy]);
 
   const flow = useMemo(() => (syllabus ? buildFlow(syllabus) : null), [syllabus]);
   const lessonTitles = useMemo(() => (syllabus ? buildLessonTitleLookup(syllabus) : null), [syllabus]);
@@ -197,8 +205,15 @@ export default function SyllabusPage() {
               disabled={busy === "generating"}
               className="mt-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-indigo-200 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-300 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none"
             >
-              {busy === "generating" ? "Generating…" : "Generate syllabus"}
+              {busy === "generating" ? `Generating… (${elapsedSeconds}s)` : "Generate syllabus"}
             </button>
+
+            {busy === "generating" && (
+              <p className="text-center text-sm text-slate-500">
+                This can take up to a minute — the AI is drafting every lesson in detail. Please
+                don&apos;t close this tab.
+              </p>
+            )}
           </div>
         </form>
 
