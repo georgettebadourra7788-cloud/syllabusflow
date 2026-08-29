@@ -2,8 +2,7 @@ import { Navbar } from "@/components/Navbar";
 import { FREE_MAX_WEEKS, FREE_MONTHLY_GENERATIONS, PRO_PRICE_LABEL } from "@/lib/plan";
 
 const CONTACT_EMAIL = "georgettebadourra7788@gmail.com";
-// TODO: replace with your real Whish Money phone number / payment link.
-const WHISH_MONEY_DETAILS = "[Your Whish Money number or payment link goes here]";
+const WHISH_MONEY_DETAILS = "81080347";
 
 export default function UpgradePage() {
   return (
