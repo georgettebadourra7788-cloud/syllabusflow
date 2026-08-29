@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 import { generateRequestSchema, syllabusSchema } from "@/lib/schemas/syllabus";
-import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
+import { verifyFirebaseIdToken, getAdminDb } from "@/lib/firebase-admin";
 import { FREE_MAX_WEEKS, FREE_MONTHLY_GENERATIONS, currentMonthKey, type UsageDoc } from "@/lib/plan";
 
 // A full structured syllabus can take longer to generate than Vercel's
@@ -37,8 +37,7 @@ async function verifyUser(request: Request): Promise<string> {
   }
 
   try {
-    const decoded = await getAdminAuth().verifyIdToken(token);
-    return decoded.uid;
+    return await verifyFirebaseIdToken(token);
   } catch {
     throw new Response(JSON.stringify({ error: "Your session expired. Please sign in again." }), {
       status: 401,
