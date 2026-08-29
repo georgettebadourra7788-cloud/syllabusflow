@@ -1,0 +1,17 @@
+rules_version = '2';
+
+// Deploy this in Firebase Console -> Firestore Database -> Rules, or via
+// `firebase deploy --only firestore:rules` with the Firebase CLI.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Each user can read their own plan/usage doc (to show "X of 3 left"),
+    // but can never write it directly — all writes happen server-side via
+    // the Admin SDK (which bypasses these rules), so a user can't reset
+    // their own generation count or flip themselves to "paid" by editing
+    // client code.
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+  }
+}

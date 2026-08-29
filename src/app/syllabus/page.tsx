@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
 import ReactFlow, { Background, Controls, type Edge, type Node } from "reactflow";
 import "reactflow/dist/style.css";
+import { doc, getDoc } from "firebase/firestore";
+import { signInWithPopup } from "firebase/auth";
 import { Navbar } from "@/components/Navbar";
+import { getFirebaseAuth, getFirebaseDb, googleAuthProvider } from "@/lib/firebase";
+import { useAuthUser } from "@/lib/useAuthUser";
+import { FREE_MAX_WEEKS, FREE_MONTHLY_GENERATIONS, type UsageDoc } from "@/lib/plan";
 import type { Syllabus } from "@/lib/schemas/syllabus";
 
 const SKILL_LEVELS = ["beginner", "intermediate", "advanced"] as const;
@@ -189,13 +195,19 @@ const inputClasses =
   "w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
 
 export default function SyllabusPage() {
+  const { user, loading: authLoading } = useAuthUser();
+  const [usage, setUsage] = useState<UsageDoc | null>(null);
   const [topic, setTopic] = useState("");
   const [weeks, setWeeks] = useState(6);
   const [skillLevel, setSkillLevel] = useState<(typeof SKILL_LEVELS)[number]>("beginner");
   const [syllabus, setSyllabus] = useState<Syllabus | null>(null);
   const [busy, setBusy] = useState<"idle" | "generating">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [limitCode, setLimitCode] = useState<"WEEKS_LIMIT" | "GENERATIONS_LIMIT" | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  const isPaid = usage?.plan === "paid";
+  const maxWeeks = isPaid ? 52 : FREE_MAX_WEEKS;
 
   useEffect(() => {
     if (busy !== "generating") return;
@@ -204,19 +216,37 @@ export default function SyllabusPage() {
     return () => clearInterval(interval);
   }, [busy]);
 
+  async function refreshUsage(uid: string) {
+    try {
+      const snap = await getDoc(doc(getFirebaseDb(), "users", uid));
+      setUsage(snap.exists() ? (snap.data() as UsageDoc) : null);
+    } catch (err) {
+      console.error("Failed to load usage:", err);
+    }
+  }
+
+  useEffect(() => {
+    if (user) refreshUsage(user.uid);
+    else setUsage(null);
+  }, [user]);
+
   const flow = useMemo(() => (syllabus ? buildFlow(syllabus) : null), [syllabus]);
   const lessonTitles = useMemo(() => (syllabus ? buildLessonTitleLookup(syllabus) : null), [syllabus]);
 
   async function handleGenerate(event: FormEvent) {
     event.preventDefault();
+    if (!user) return;
+
     setBusy("generating");
     setError(null);
+    setLimitCode(null);
     setSyllabus(null);
 
     try {
+      const idToken = await user.getIdToken();
       const response = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
         body: JSON.stringify({ topic, weeks, skillLevel }),
       });
       console.log("[generate] response status:", response.status);
@@ -224,6 +254,9 @@ export default function SyllabusPage() {
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         console.error("[generate] error response body:", body);
+        if (body.code === "WEEKS_LIMIT" || body.code === "GENERATIONS_LIMIT") {
+          setLimitCode(body.code);
+        }
         throw new Error(
           typeof body.error === "string" && body.error.length > 0
             ? body.error
@@ -239,6 +272,15 @@ export default function SyllabusPage() {
       setError(err instanceof Error && err.message ? err.message : "Something went wrong");
     } finally {
       setBusy("idle");
+      refreshUsage(user.uid);
+    }
+  }
+
+  async function handleSignIn() {
+    try {
+      await signInWithPopup(getFirebaseAuth(), googleAuthProvider);
+    } catch (err) {
+      console.error("Sign-in failed:", err);
     }
   }
 
@@ -294,6 +336,14 @@ export default function SyllabusPage() {
           className="mx-auto mt-10 max-w-xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm shadow-slate-200/60"
         >
           <div className="grid gap-5">
+            {user && (
+              <p className="text-center text-xs font-medium text-slate-500">
+                {isPaid
+                  ? "Unlimited generations — Pro plan"
+                  : `${Math.max(0, FREE_MONTHLY_GENERATIONS - (usage?.generationsThisMonth ?? 0))} of ${FREE_MONTHLY_GENERATIONS} free generations left this month`}
+              </p>
+            )}
+
             <label className="grid gap-1.5">
               <span className="text-sm font-medium text-slate-700">Topic</span>
               <input
@@ -307,11 +357,13 @@ export default function SyllabusPage() {
 
             <div className="grid grid-cols-2 gap-5">
               <label className="grid gap-1.5">
-                <span className="text-sm font-medium text-slate-700">Weeks</span>
+                <span className="text-sm font-medium text-slate-700">
+                  Weeks {!isPaid && <span className="font-normal text-slate-400">(max {FREE_MAX_WEEKS} on free)</span>}
+                </span>
                 <input
                   type="number"
                   min={1}
-                  max={52}
+                  max={maxWeeks}
                   value={weeks}
                   onChange={(e) => setWeeks(Number(e.target.value))}
                   required
@@ -335,13 +387,24 @@ export default function SyllabusPage() {
               </label>
             </div>
 
-            <button
-              type="submit"
-              disabled={busy === "generating"}
-              className="mt-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-indigo-200 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-300 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none"
-            >
-              {busy === "generating" ? `Generating… (${elapsedSeconds}s)` : "Generate syllabus"}
-            </button>
+            {user ? (
+              <button
+                type="submit"
+                disabled={busy === "generating"}
+                className="mt-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-indigo-200 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-300 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none"
+              >
+                {busy === "generating" ? `Generating… (${elapsedSeconds}s)` : "Generate syllabus"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={authLoading}
+                onClick={handleSignIn}
+                className="mt-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-indigo-200 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-300 disabled:opacity-60"
+              >
+                Sign in to generate
+              </button>
+            )}
 
             {busy === "generating" && (
               <p className="text-center text-sm text-slate-500">
@@ -355,6 +418,11 @@ export default function SyllabusPage() {
         {error && (
           <div className="mx-auto mt-6 max-w-xl rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
+            {limitCode && (
+              <Link href="/upgrade" className="mt-2 block font-semibold text-red-800 underline">
+                Upgrade to remove this limit →
+              </Link>
+            )}
           </div>
         )}
 
