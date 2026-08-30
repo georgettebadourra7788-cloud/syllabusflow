@@ -2,7 +2,7 @@ import { Navbar } from "@/components/Navbar";
 import { FREE_MAX_WEEKS, FREE_MONTHLY_GENERATIONS, PRO_PRICE_LABEL } from "@/lib/plan";
 
 const CONTACT_EMAIL = "georgettebadourra7788@gmail.com";
-const WHISH_MONEY_DETAILS = "81080347";
+const WHISH_MONEY_DETAILS = "96181080347";
 
 export default function UpgradePage() {
   return (
