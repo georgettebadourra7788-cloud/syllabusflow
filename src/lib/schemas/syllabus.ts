@@ -13,12 +13,31 @@ export const lessonSchema = z.object({
 export const moduleSchema = z.object({
   title: z.string(),
   lessons: z.array(lessonSchema),
+  references: z
+    .array(z.string())
+    .optional()
+    .describe("Academic readings/textbook citations for this week (paid tier only)"),
+});
+
+export const assessmentComponentSchema = z.object({
+  name: z.string().describe("e.g. 'Participation', 'Midterm exam', 'Final project'"),
+  weight: z.string().describe("e.g. '20%'"),
+  description: z.string(),
 });
 
 export const syllabusSchema = z.object({
   courseTitle: z.string(),
   durationWeeks: z.number().int().positive(),
   targetAudience: z.string(),
+  courseOverview: z.string().optional().describe("Short course-level summary (paid tier only)"),
+  learningOutcomes: z
+    .array(z.string())
+    .optional()
+    .describe("Course-level learning outcomes (paid tier only)"),
+  assessment: z
+    .array(assessmentComponentSchema)
+    .optional()
+    .describe("Grading breakdown (paid tier only)"),
   modules: z.array(moduleSchema),
 });
 
