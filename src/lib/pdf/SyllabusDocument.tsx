@@ -14,7 +14,7 @@ function styles(theme: (typeof PDF_TEMPLATES)[PdfTemplate]) {
     page: {
       paddingTop: 48,
       paddingBottom: 48,
-      paddingHorizontal: 40,
+      paddingHorizontal: theme.pageHorizontalPadding,
       fontFamily: theme.fontFamily,
       fontSize: 10,
       color: theme.text,
@@ -28,8 +28,13 @@ function styles(theme: (typeof PDF_TEMPLATES)[PdfTemplate]) {
       opacity: 0.12,
       transform: "rotate(-35deg)",
     },
-    title: { fontSize: 22, fontWeight: 700, marginBottom: 8 },
-    badgeRow: { flexDirection: "row", gap: 8, marginBottom: 20 },
+    title: { fontSize: 22, fontWeight: 700, marginBottom: 8, textAlign: theme.titleAlign },
+    badgeRow: {
+      flexDirection: "row",
+      gap: 8,
+      marginBottom: 20,
+      justifyContent: theme.titleAlign === "center" ? "center" : "flex-start",
+    },
     badge: {
       backgroundColor: theme.accentSoft,
       color: theme.accent,
@@ -56,8 +61,28 @@ function styles(theme: (typeof PDF_TEMPLATES)[PdfTemplate]) {
       borderColor: theme.border,
       borderRadius: 8,
       padding: 14,
-      marginBottom: 12,
+      marginBottom: theme.moduleSpacing,
       breakInside: "avoid",
+    },
+    // Formal-divider modules (Classic) skip the bordered card + numbered
+    // badge in favor of a centered heading between horizontal rules —
+    // traditional printed-syllabus formatting.
+    moduleFormal: {
+      borderTopWidth: 1.5,
+      borderTopColor: theme.accent,
+      borderBottomWidth: 1.5,
+      borderBottomColor: theme.accent,
+      paddingVertical: 14,
+      marginBottom: theme.moduleSpacing,
+      breakInside: "avoid",
+    },
+    moduleFormalHeader: { alignItems: "center", marginBottom: 10 },
+    moduleFormalTitle: {
+      fontSize: 12,
+      fontWeight: 700,
+      textAlign: "center",
+      textTransform: "uppercase",
+      letterSpacing: 1,
     },
     moduleHeaderRow: { flexDirection: "row", alignItems: "center", marginBottom: 10, gap: 8 },
     moduleNumber: {
@@ -121,6 +146,63 @@ function styles(theme: (typeof PDF_TEMPLATES)[PdfTemplate]) {
   });
 }
 
+type Styles = ReturnType<typeof styles>;
+
+function LessonList({
+  mod,
+  lessonTitles,
+  s,
+}: {
+  mod: Syllabus["modules"][number];
+  lessonTitles: Map<string, string>;
+  s: Styles;
+}) {
+  return (
+    <>
+      {mod.lessons.map((lesson) => (
+        <View key={lesson.key} style={s.lesson}>
+          <Text style={s.lessonTitle}>{lesson.title}</Text>
+          <Text style={s.lessonSummary}>{lesson.summary}</Text>
+
+          {lesson.learningObjectives.length > 0 && (
+            <View>
+              <Text style={s.objectivesLabel}>Objectives</Text>
+              {lesson.learningObjectives.map((objective, idx) => (
+                <Text key={idx} style={s.objectiveItem}>
+                  • {objective}
+                </Text>
+              ))}
+            </View>
+          )}
+
+          {lesson.prerequisiteLessonKeys.length > 0 && (
+            <View style={s.requiresRow}>
+              <Text style={s.requiresLabel}>Requires:</Text>
+              {lesson.prerequisiteLessonKeys.map((key, idx) => (
+                <Text key={key} style={s.pill}>
+                  {lessonTitles.get(key) ?? key}
+                  {idx < lesson.prerequisiteLessonKeys.length - 1 ? "," : ""}
+                </Text>
+              ))}
+            </View>
+          )}
+        </View>
+      ))}
+
+      {mod.references && mod.references.length > 0 && (
+        <View style={s.referencesBlock}>
+          <Text style={s.objectivesLabel}>References</Text>
+          {mod.references.map((ref, idx) => (
+            <Text key={idx} style={s.referenceItem}>
+              {ref}
+            </Text>
+          ))}
+        </View>
+      )}
+    </>
+  );
+}
+
 export function SyllabusDocument({ syllabus, lessonTitles, template, watermark }: SyllabusDocumentProps) {
   const theme = PDF_TEMPLATES[template];
   const s = styles(theme);
@@ -149,55 +231,24 @@ export function SyllabusDocument({ syllabus, lessonTitles, template, watermark }
           </View>
         )}
 
-        {syllabus.modules.map((mod, i) => (
-          <View key={i} style={s.module} wrap={false}>
-            <View style={s.moduleHeaderRow}>
-              <Text style={s.moduleNumber}>{i + 1}</Text>
-              <Text style={s.moduleTitle}>{mod.title}</Text>
+        {syllabus.modules.map((mod, i) =>
+          theme.formalDividers ? (
+            <View key={i} style={s.moduleFormal} wrap={false}>
+              <View style={s.moduleFormalHeader}>
+                <Text style={s.moduleFormalTitle}>{mod.title}</Text>
+              </View>
+              <LessonList mod={mod} lessonTitles={lessonTitles} s={s} />
             </View>
-
-            {mod.lessons.map((lesson) => (
-              <View key={lesson.key} style={s.lesson}>
-                <Text style={s.lessonTitle}>{lesson.title}</Text>
-                <Text style={s.lessonSummary}>{lesson.summary}</Text>
-
-                {lesson.learningObjectives.length > 0 && (
-                  <View>
-                    <Text style={s.objectivesLabel}>Objectives</Text>
-                    {lesson.learningObjectives.map((objective, idx) => (
-                      <Text key={idx} style={s.objectiveItem}>
-                        • {objective}
-                      </Text>
-                    ))}
-                  </View>
-                )}
-
-                {lesson.prerequisiteLessonKeys.length > 0 && (
-                  <View style={s.requiresRow}>
-                    <Text style={s.requiresLabel}>Requires:</Text>
-                    {lesson.prerequisiteLessonKeys.map((key, idx) => (
-                      <Text key={key} style={s.pill}>
-                        {lessonTitles.get(key) ?? key}
-                        {idx < lesson.prerequisiteLessonKeys.length - 1 ? "," : ""}
-                      </Text>
-                    ))}
-                  </View>
-                )}
+          ) : (
+            <View key={i} style={s.module} wrap={false}>
+              <View style={s.moduleHeaderRow}>
+                <Text style={s.moduleNumber}>{i + 1}</Text>
+                <Text style={s.moduleTitle}>{mod.title}</Text>
               </View>
-            ))}
-
-            {mod.references && mod.references.length > 0 && (
-              <View style={s.referencesBlock}>
-                <Text style={s.objectivesLabel}>References</Text>
-                {mod.references.map((ref, idx) => (
-                  <Text key={idx} style={s.referenceItem}>
-                    {ref}
-                  </Text>
-                ))}
-              </View>
-            )}
-          </View>
-        ))}
+              <LessonList mod={mod} lessonTitles={lessonTitles} s={s} />
+            </View>
+          ),
+        )}
 
         {syllabus.assessment && syllabus.assessment.length > 0 && (
           <View style={s.assessmentBlock} wrap={false}>

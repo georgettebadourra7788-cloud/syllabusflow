@@ -215,6 +215,12 @@ export default function SyllabusPage() {
   const isPaid = usage?.plan === "paid";
   const maxWeeks = isPaid ? 52 : FREE_MAX_WEEKS;
   const effectiveTemplate = isPaid ? template : "basic";
+  const theme = PDF_TEMPLATES[effectiveTemplate];
+  // Mirrors the PDF's fontFamily choice so the on-page preview matches what
+  // gets downloaded — the PDF's built-in Times-Roman isn't a web font, so
+  // map it to an equivalent serif stack here.
+  const previewFontFamily =
+    theme.fontFamily === "Times-Roman" ? "Georgia, 'Times New Roman', Times, serif" : undefined;
 
   useEffect(() => {
     if (busy !== "generating") return;
@@ -455,20 +461,35 @@ export default function SyllabusPage() {
         )}
 
         {syllabus && (
-          <section className="mt-16">
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm shadow-slate-200/60">
-              <h2 className="text-2xl font-bold text-slate-900">{syllabus.courseTitle}</h2>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
+          <section className="mt-16" style={{ fontFamily: previewFontFamily }}>
+            <div
+              className={`rounded-2xl border bg-white shadow-sm shadow-slate-200/60 ${
+                effectiveTemplate === "modern" ? "p-10" : "p-8"
+              } ${theme.titleAlign === "center" ? "text-center" : ""}`}
+              style={{ borderColor: theme.border }}
+            >
+              <h2 className="text-2xl font-bold" style={{ color: theme.text }}>
+                {syllabus.courseTitle}
+              </h2>
+              <div className={`mt-3 flex flex-wrap gap-2 ${theme.titleAlign === "center" ? "justify-center" : ""}`}>
+                <span
+                  className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+                  style={{ backgroundColor: theme.accentSoft, color: theme.accent }}
+                >
                   {syllabus.durationWeeks} weeks
                 </span>
-                <span className="inline-flex items-center rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
+                <span
+                  className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+                  style={{ backgroundColor: theme.accentSoft, color: theme.accent }}
+                >
                   {syllabus.targetAudience}
                 </span>
               </div>
 
               {syllabus.courseOverview && (
-                <p className="mt-4 text-sm leading-relaxed text-slate-600">{syllabus.courseOverview}</p>
+                <p className="mt-4 text-sm leading-relaxed" style={{ color: theme.textMuted }}>
+                  {syllabus.courseOverview}
+                </p>
               )}
 
               {syllabus.learningOutcomes && syllabus.learningOutcomes.length > 0 && (
@@ -504,18 +525,36 @@ export default function SyllabusPage() {
               </div>
             )}
 
-            <div className="mt-6 grid gap-6">
+            <div className={`mt-6 grid ${effectiveTemplate === "modern" ? "gap-8" : "gap-6"}`}>
               {syllabus.modules.map((mod, i) => (
                 <div
                   key={i}
-                  className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60"
+                  className={
+                    theme.formalDividers
+                      ? `border-y-2 py-6 ${effectiveTemplate === "modern" ? "px-10" : "px-6"}`
+                      : `rounded-2xl border bg-white shadow-sm shadow-slate-200/60 ${
+                          effectiveTemplate === "modern" ? "p-8" : "p-6"
+                        }`
+                  }
+                  style={theme.formalDividers ? { borderColor: theme.accent } : { borderColor: theme.border }}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-sm font-semibold text-indigo-600">
-                      {i + 1}
-                    </span>
-                    <h3 className="text-lg font-semibold text-slate-900">{mod.title}</h3>
-                  </div>
+                  {theme.formalDividers ? (
+                    <h3 className="text-center text-lg font-semibold uppercase tracking-wide" style={{ color: theme.text }}>
+                      {mod.title}
+                    </h3>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
+                        style={{ backgroundColor: theme.accentSoft, color: theme.accent }}
+                      >
+                        {i + 1}
+                      </span>
+                      <h3 className="text-lg font-semibold" style={{ color: theme.text }}>
+                        {mod.title}
+                      </h3>
+                    </div>
+                  )}
 
                   <ul className="mt-5 grid gap-5 sm:pl-11">
                     {mod.lessons.map((lesson) => (
@@ -542,7 +581,8 @@ export default function SyllabusPage() {
                             {lesson.prerequisiteLessonKeys.map((key, idx) => (
                               <span
                                 key={key}
-                                className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700"
+                                className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium"
+                                style={{ backgroundColor: theme.pillBg, color: theme.pillText }}
                               >
                                 {lessonTitles?.get(key) ?? key}
                                 {idx < lesson.prerequisiteLessonKeys.length - 1 ? "," : ""}
@@ -571,16 +611,29 @@ export default function SyllabusPage() {
             </div>
 
             {syllabus.assessment && syllabus.assessment.length > 0 && (
-              <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60">
-                <h3 className="text-sm font-semibold text-slate-900">Assessment</h3>
+              <div
+                className={`mt-6 rounded-2xl border bg-white shadow-sm shadow-slate-200/60 ${
+                  effectiveTemplate === "modern" ? "p-8" : "p-6"
+                }`}
+                style={{ borderColor: theme.border }}
+              >
+                <h3 className="text-sm font-semibold" style={{ color: theme.text }}>
+                  Assessment
+                </h3>
                 <div className="mt-4 grid gap-4">
                   {syllabus.assessment.map((component, i) => (
                     <div key={i}>
                       <div className="flex items-baseline justify-between gap-3">
-                        <p className="font-semibold text-slate-900">{component.name}</p>
-                        <p className="text-sm font-semibold text-indigo-600">{component.weight}</p>
+                        <p className="font-semibold" style={{ color: theme.text }}>
+                          {component.name}
+                        </p>
+                        <p className="text-sm font-semibold" style={{ color: theme.accent }}>
+                          {component.weight}
+                        </p>
                       </div>
-                      <p className="mt-1 text-sm leading-relaxed text-slate-600">{component.description}</p>
+                      <p className="mt-1 text-sm leading-relaxed" style={{ color: theme.textMuted }}>
+                        {component.description}
+                      </p>
                     </div>
                   ))}
                 </div>
