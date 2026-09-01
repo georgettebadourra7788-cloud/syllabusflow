@@ -248,7 +248,11 @@ export default function SyllabusPage() {
     setSyllabus(null);
 
     try {
-      const idToken = await user.getIdToken();
+      // Force a refresh rather than trusting the SDK's cached token — on
+      // mobile, backgrounding the tab throttles Firebase's proactive
+      // refresh timer, so a signed-in user can still be holding an
+      // already-expired cached token that only surfaces as a 401 here.
+      const idToken = await user.getIdToken(true);
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
