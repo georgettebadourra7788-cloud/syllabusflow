@@ -175,9 +175,10 @@ export function SyllabusDocument({ syllabus, lessonTitles, template, watermark }
                 {lesson.prerequisiteLessonKeys.length > 0 && (
                   <View style={s.requiresRow}>
                     <Text style={s.requiresLabel}>Requires:</Text>
-                    {lesson.prerequisiteLessonKeys.map((key) => (
+                    {lesson.prerequisiteLessonKeys.map((key, idx) => (
                       <Text key={key} style={s.pill}>
                         {lessonTitles.get(key) ?? key}
+                        {idx < lesson.prerequisiteLessonKeys.length - 1 ? "," : ""}
                       </Text>
                     ))}
                   </View>

@@ -11,7 +11,9 @@ export const lessonSchema = z.object({
 });
 
 export const moduleSchema = z.object({
-  title: z.string(),
+  title: z
+    .string()
+    .describe('Must start with "Week N: " (e.g. "Week 1: Introduction to Neural Networks") — never "Module"'),
   lessons: z.array(lessonSchema),
   references: z
     .array(z.string())

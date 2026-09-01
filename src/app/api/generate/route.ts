@@ -126,7 +126,11 @@ course covers and why it matters) and a "learningOutcomes" array (4-6 items)
 summarizing what a learner can do after completing the course.
 
 Break the course into weekly modules, one module per week, with 2-3 lessons
-each. Each module should have a title, a list of lessons, and a
+each. Every module's "title" must start with "Week N: " followed by a short
+descriptive subtitle (e.g. "Week 1: Introduction to Neural Networks") —
+always use the word "Week", never "Module", and always include the week
+number, so section labels stay consistent throughout the syllabus. Each
+module should have that title, a list of lessons, and a
 "references" array of 1-3 real, specific academic readings or sources
 relevant to that week's material — textbooks, key papers, or established
 guidelines/criteria appropriate to the subject (author, title, and

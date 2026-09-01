@@ -97,8 +97,10 @@ function buildHtmlDocument(syllabus: Syllabus, lessonTitles: Map<string, string>
                   lesson.prerequisiteLessonKeys.length > 0
                     ? `<div class="requires"><span class="requires-label">Requires:</span> ${lesson.prerequisiteLessonKeys
                         .map(
-                          (key) =>
-                            `<span class="pill pill-amber">${escapeHtml(lessonTitles.get(key) ?? key)}</span>`,
+                          (key, idx) =>
+                            `<span class="pill pill-amber">${escapeHtml(lessonTitles.get(key) ?? key)}${
+                              idx < lesson.prerequisiteLessonKeys.length - 1 ? "," : ""
+                            }</span>`,
                         )
                         .join("")}</div>`
                     : ""
@@ -537,12 +539,13 @@ export default function SyllabusPage() {
                         {lesson.prerequisiteLessonKeys.length > 0 && (
                           <div className="mt-3 flex flex-wrap items-center gap-1.5">
                             <span className="text-xs font-medium text-slate-400">Requires:</span>
-                            {lesson.prerequisiteLessonKeys.map((key) => (
+                            {lesson.prerequisiteLessonKeys.map((key, idx) => (
                               <span
                                 key={key}
                                 className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700"
                               >
                                 {lessonTitles?.get(key) ?? key}
+                                {idx < lesson.prerequisiteLessonKeys.length - 1 ? "," : ""}
                               </span>
                             ))}
                           </div>
