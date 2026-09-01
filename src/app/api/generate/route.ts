@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 import { generateRequestSchema, syllabusSchema } from "@/lib/schemas/syllabus";
+import { normalizeSyllabus } from "@/lib/syllabus-normalize";
 import { verifyFirebaseIdToken, getAdminDb } from "@/lib/firebase-admin";
 import { FREE_MAX_WEEKS, FREE_MONTHLY_GENERATIONS, currentMonthKey, type UsageDoc } from "@/lib/plan";
 
@@ -133,13 +134,16 @@ edition/chapter where applicable) — ground these in recognized, well-known
 sources for the subject rather than inventing obscure or fictional ones.
 
 Each lesson needs a unique "key" (a short slug, stable across the response,
-e.g. "week1-intro"), a title, a full lesson summary (3-5 sentences) written
-with varied sentence structure and openings — do not start every summary
-with the same template phrase like "This lesson explores..." or "Students
-will learn...", objectives scaled to the topic's complexity (as many as are
+e.g. "week1-intro") — every lesson in the syllabus must have a different
+key, and no lesson should be listed more than once anywhere in the
+response — a title, a full lesson summary (3-5 sentences) written with
+varied sentence structure and openings — do not start every summary with
+the same template phrase like "This lesson explores..." or "Students will
+learn...", objectives scaled to the topic's complexity (as many as are
 genuinely useful, not capped at a fixed number), and an array of
 prerequisiteLessonKeys referencing the "key" of any earlier lesson in this
 same syllabus that a student should complete first (empty array if none).
+A lesson must never list its own key as a prerequisite.
 
 Finally, include an "assessment" array describing the course-level
 evaluation breakdown, each with a "name", a "weight" (e.g. "20%") that sums
@@ -193,7 +197,7 @@ export async function POST(request: Request) {
         abortSignal: controller.signal,
       });
 
-      return NextResponse.json(object);
+      return NextResponse.json(normalizeSyllabus(object));
     } catch (error) {
       const timedOut = controller.signal.aborted;
       console.error(`Syllabus generation failed with ${modelId}${timedOut ? " (timed out)" : ""}`, error);
