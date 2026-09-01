@@ -38,7 +38,13 @@ async function verifyUser(request: Request): Promise<string> {
 
   try {
     return await verifyFirebaseIdToken(token);
-  } catch {
+  } catch (error) {
+    // The client only ever sees the generic message below — logging the
+    // real cause here is the only way to tell a genuinely expired token
+    // apart from a server-side misconfiguration (missing/invalid
+    // FIREBASE_SERVICE_ACCOUNT_KEY, project ID mismatch, JWKS fetch
+    // failure), which would otherwise look identical to the user.
+    console.error("Firebase ID token verification failed:", error);
     throw new Response(JSON.stringify({ error: "Your session expired. Please sign in again." }), {
       status: 401,
     });
