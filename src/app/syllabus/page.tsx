@@ -11,6 +11,8 @@ import { getFirebaseAuth, getFirebaseDb, googleAuthProvider } from "@/lib/fireba
 import { useAuthUser } from "@/lib/useAuthUser";
 import { FREE_MAX_WEEKS, FREE_MONTHLY_GENERATIONS, type UsageDoc } from "@/lib/plan";
 import type { Syllabus } from "@/lib/schemas/syllabus";
+import { SyllabusDocument } from "@/lib/pdf/SyllabusDocument";
+import { PDF_TEMPLATES, PREMIUM_TEMPLATES, type PdfTemplate } from "@/lib/pdf/templates";
 
 const SKILL_LEVELS = ["beginner", "intermediate", "advanced"] as const;
 
@@ -205,9 +207,12 @@ export default function SyllabusPage() {
   const [error, setError] = useState<string | null>(null);
   const [limitCode, setLimitCode] = useState<"WEEKS_LIMIT" | "GENERATIONS_LIMIT" | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [template, setTemplate] = useState<PdfTemplate>("basic");
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   const isPaid = usage?.plan === "paid";
   const maxWeeks = isPaid ? 52 : FREE_MAX_WEEKS;
+  const effectiveTemplate = isPaid ? template : "basic";
 
   useEffect(() => {
     if (busy !== "generating") return;
@@ -243,7 +248,11 @@ export default function SyllabusPage() {
     setSyllabus(null);
 
     try {
-      const idToken = await user.getIdToken();
+      // Force a refresh rather than trusting the SDK's cached token — on
+      // mobile, backgrounding the tab throttles Firebase's proactive
+      // refresh timer, so a signed-in user can still be holding an
+      // already-expired cached token that only surfaces as a 401 here.
+      const idToken = await user.getIdToken(true);
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
@@ -298,18 +307,35 @@ export default function SyllabusPage() {
     URL.revokeObjectURL(url);
   }
 
-  function handleDownloadPdf() {
+  async function handleDownloadPdf() {
     if (!syllabus || !lessonTitles) return;
 
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
+    setPdfBusy(true);
+    try {
+      const { pdf } = await import("@react-pdf/renderer");
+      const blob = await pdf(
+        <SyllabusDocument
+          syllabus={syllabus}
+          lessonTitles={lessonTitles}
+          template={effectiveTemplate}
+          watermark={!isPaid}
+        />,
+      ).toBlob();
 
-    printWindow.document.write(buildHtmlDocument(syllabus, lessonTitles));
-    printWindow.document.close();
-    printWindow.onload = () => {
-      printWindow.focus();
-      printWindow.print();
-    };
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${slugify(syllabus.courseTitle)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      setError("Couldn't generate the PDF. Please try again.");
+    } finally {
+      setPdfBusy(false);
+    }
   }
 
   return (
@@ -438,6 +464,23 @@ export default function SyllabusPage() {
                   {syllabus.targetAudience}
                 </span>
               </div>
+
+              {syllabus.courseOverview && (
+                <p className="mt-4 text-sm leading-relaxed text-slate-600">{syllabus.courseOverview}</p>
+              )}
+
+              {syllabus.learningOutcomes && syllabus.learningOutcomes.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Learning outcomes
+                  </p>
+                  <ul className="mt-1.5 list-disc space-y-1 pl-5 text-sm text-slate-700">
+                    {syllabus.learningOutcomes.map((outcome, idx) => (
+                      <li key={idx}>{outcome}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             {flow && flow.nodes.length > 0 && (
@@ -446,7 +489,12 @@ export default function SyllabusPage() {
                   <h3 className="text-sm font-semibold text-slate-900">Prerequisite map</h3>
                 </div>
                 <div style={{ height: 400 }}>
-                  <ReactFlow nodes={flow.nodes} edges={flow.edges} fitView>
+                  <ReactFlow
+                    nodes={flow.nodes}
+                    edges={flow.edges}
+                    fitView
+                    proOptions={{ hideAttribution: true }}
+                  >
                     <Background color="#e2e8f0" />
                     <Controls />
                   </ReactFlow>
@@ -502,27 +550,88 @@ export default function SyllabusPage() {
                       </li>
                     ))}
                   </ul>
+
+                  {mod.references && mod.references.length > 0 && (
+                    <div className="mt-5 sm:pl-11">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        References
+                      </p>
+                      <ul className="mt-1.5 space-y-1 text-sm text-slate-600">
+                        {mod.references.map((ref, idx) => (
+                          <li key={idx}>{ref}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
 
-            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <button
-                onClick={handleDownloadPdf}
-                className="rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-indigo-200 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-300"
-              >
-                Download as PDF
-              </button>
-              <button
-                onClick={handleDownloadHtml}
-                className="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50"
-              >
-                Download as HTML
-              </button>
+            {syllabus.assessment && syllabus.assessment.length > 0 && (
+              <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60">
+                <h3 className="text-sm font-semibold text-slate-900">Assessment</h3>
+                <div className="mt-4 grid gap-4">
+                  {syllabus.assessment.map((component, i) => (
+                    <div key={i}>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className="font-semibold text-slate-900">{component.name}</p>
+                        <p className="text-sm font-semibold text-indigo-600">{component.weight}</p>
+                      </div>
+                      <p className="mt-1 text-sm leading-relaxed text-slate-600">{component.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-8">
+              {isPaid && (
+                <div className="mx-auto mb-4 flex max-w-md flex-col items-center gap-2">
+                  <span className="text-xs font-medium text-slate-500">PDF template</span>
+                  <div className="flex gap-2">
+                    {(["basic", ...PREMIUM_TEMPLATES] as const).map((id) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setTemplate(id)}
+                        className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
+                          effectiveTemplate === id
+                            ? "border-indigo-500 bg-indigo-600 text-white"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                        }`}
+                      >
+                        {PDF_TEMPLATES[id].label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+                <button
+                  onClick={handleDownloadPdf}
+                  disabled={pdfBusy}
+                  className="rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-indigo-200 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-300 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none"
+                >
+                  {pdfBusy ? "Preparing PDF…" : "Download as PDF"}
+                </button>
+                <button
+                  onClick={handleDownloadHtml}
+                  className="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50"
+                >
+                  Download as HTML
+                </button>
+              </div>
+              {!isPaid && (
+                <p className="mt-3 text-center text-xs text-slate-400">
+                  Free PDFs include a SyllabusFlow watermark.{" "}
+                  <Link href="/upgrade" className="font-semibold text-indigo-600 underline">
+                    Upgrade
+                  </Link>{" "}
+                  to remove it and unlock premium templates.
+                </p>
+              )}
             </div>
-            <p className="mt-3 text-center text-xs text-slate-400">
-              PDF opens your browser&apos;s print dialog — choose &quot;Save as PDF&quot; as the destination.
-            </p>
           </section>
         )}
       </main>

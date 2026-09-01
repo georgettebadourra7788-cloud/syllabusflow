@@ -1,6 +1,6 @@
-export const FREE_MONTHLY_GENERATIONS = 3;
+export const FREE_MONTHLY_GENERATIONS = 12;
 export const FREE_MAX_WEEKS = 6;
-export const PRO_PRICE_LABEL = "$20/year";
+export const PRO_PRICE_LABEL = "$40/year";
 
 export type Plan = "free" | "paid";
 
