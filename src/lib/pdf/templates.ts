@@ -52,8 +52,8 @@ export const PDF_TEMPLATES: Record<PdfTemplate, TemplateTheme> = {
     pillBg: "#fffbeb",
     pillText: "#b45309",
     titleAlign: "left",
-    pageHorizontalPadding: 56,
-    moduleSpacing: 20,
+    pageHorizontalPadding: 46,
+    moduleSpacing: 15,
     formalDividers: false,
   },
   classic: {

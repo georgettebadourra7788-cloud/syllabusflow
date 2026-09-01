@@ -160,7 +160,7 @@ function LessonList({
   return (
     <>
       {mod.lessons.map((lesson) => (
-        <View key={lesson.key} style={s.lesson}>
+        <View key={lesson.key} style={s.lesson} wrap={false}>
           <Text style={s.lessonTitle}>{lesson.title}</Text>
           <Text style={s.lessonSummary}>{lesson.summary}</Text>
 
@@ -233,14 +233,22 @@ export function SyllabusDocument({ syllabus, lessonTitles, template, watermark }
 
         {syllabus.modules.map((mod, i) =>
           theme.formalDividers ? (
-            <View key={i} style={s.moduleFormal} wrap={false}>
+            // Unbreakable only at lesson granularity (below) — a whole
+            // module can span multiple lessons and would otherwise be one
+            // large atomic block. If that block didn't fit in whatever
+            // space remained on the current page, react-pdf would push it
+            // *entirely* to the next page, wasting the leftover space and
+            // cascading into whatever follows (including Assessment,
+            // which then also lands on a fresh, mostly-empty page even
+            // though it may have fit on the original one).
+            <View key={i} style={s.moduleFormal}>
               <View style={s.moduleFormalHeader}>
                 <Text style={s.moduleFormalTitle}>{mod.title}</Text>
               </View>
               <LessonList mod={mod} lessonTitles={lessonTitles} s={s} />
             </View>
           ) : (
-            <View key={i} style={s.module} wrap={false}>
+            <View key={i} style={s.module}>
               <View style={s.moduleHeaderRow}>
                 <Text style={s.moduleNumber}>{i + 1}</Text>
                 <Text style={s.moduleTitle}>{mod.title}</Text>
