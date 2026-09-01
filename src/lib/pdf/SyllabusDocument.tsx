@@ -77,8 +77,13 @@ function styles(theme: (typeof PDF_TEMPLATES)[PdfTemplate]) {
     lessonSummary: { fontSize: 9.5, lineHeight: 1.5, color: theme.textMuted, marginBottom: 4 },
     objectivesLabel: { fontSize: 8, fontWeight: 700, textTransform: "uppercase", color: theme.textMuted, marginBottom: 2 },
     objectiveItem: { fontSize: 9.5, lineHeight: 1.4, color: theme.text, marginBottom: 1, paddingLeft: 8 },
-    requiresRow: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4, alignItems: "center" },
-    requiresLabel: { fontSize: 8, color: theme.textMuted, marginRight: 2 },
+    // Flexbox `gap` is unreliable in react-pdf's layout engine once
+    // flexWrap is involved, so spacing between the label and each pill
+    // (and between wrapped pills themselves) relies on explicit margins
+    // rather than `gap` — without it, wrapped pills can render flush
+    // against each other with no visible separator at all.
+    requiresRow: { flexDirection: "row", flexWrap: "wrap", marginTop: 4, alignItems: "center" },
+    requiresLabel: { fontSize: 8, color: theme.textMuted, marginRight: 4 },
     pill: {
       backgroundColor: theme.pillBg,
       color: theme.pillText,
@@ -87,6 +92,8 @@ function styles(theme: (typeof PDF_TEMPLATES)[PdfTemplate]) {
       paddingHorizontal: 7,
       fontSize: 8,
       fontWeight: 600,
+      marginRight: 4,
+      marginBottom: 4,
     },
     referencesBlock: { marginTop: 6, paddingLeft: 26 },
     referenceItem: { fontSize: 8.5, lineHeight: 1.4, color: theme.textMuted, marginBottom: 1 },
