@@ -15,12 +15,11 @@ export const moduleSchema = z.object({
   lessons: z.array(lessonSchema),
   references: z
     .array(z.string())
-    .optional()
-    .describe("Academic readings/textbook citations for this week (paid tier only)"),
+    .describe("Real, topic-appropriate academic readings/textbook citations for this week"),
 });
 
 export const assessmentComponentSchema = z.object({
-  name: z.string().describe("e.g. 'Participation', 'Midterm exam', 'Final project'"),
+  name: z.string().describe("e.g. 'Participation', 'Midterm exam', 'OSCE', 'Case presentation'"),
   weight: z.string().describe("e.g. '20%'"),
   description: z.string(),
 });
@@ -29,15 +28,11 @@ export const syllabusSchema = z.object({
   courseTitle: z.string(),
   durationWeeks: z.number().int().positive(),
   targetAudience: z.string(),
-  courseOverview: z.string().optional().describe("Short course-level summary (paid tier only)"),
-  learningOutcomes: z
-    .array(z.string())
-    .optional()
-    .describe("Course-level learning outcomes (paid tier only)"),
+  courseOverview: z.string().describe("Short course-level description, shown before Module/Week 1"),
+  learningOutcomes: z.array(z.string()).describe("Course-level learning outcomes"),
   assessment: z
     .array(assessmentComponentSchema)
-    .optional()
-    .describe("Grading breakdown (paid tier only)"),
+    .describe("Course-level evaluation breakdown, format adapted to the subject"),
   modules: z.array(moduleSchema),
 });
 

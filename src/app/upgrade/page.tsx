@@ -39,11 +39,6 @@ export default function UpgradePage() {
             </li>
             <li className="flex items-start gap-2">
               <span className="mt-0.5 text-indigo-600">✓</span>
-              Richer syllabi: fuller lesson descriptions, real academic references, an
-              assessment/grading breakdown, and a course overview
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 text-indigo-600">✓</span>
               No watermark on exported PDFs, plus multiple premium templates
             </li>
             <li className="flex items-start gap-2">

@@ -3,7 +3,7 @@ import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 import { generateRequestSchema, syllabusSchema } from "@/lib/schemas/syllabus";
 import { verifyFirebaseIdToken, getAdminDb } from "@/lib/firebase-admin";
-import { FREE_MAX_WEEKS, FREE_MONTHLY_GENERATIONS, currentMonthKey, type Plan, type UsageDoc } from "@/lib/plan";
+import { FREE_MAX_WEEKS, FREE_MONTHLY_GENERATIONS, currentMonthKey, type UsageDoc } from "@/lib/plan";
 
 // A full structured syllabus can take longer to generate than Vercel's
 // default serverless function timeout (10s on Hobby) allows.
@@ -55,12 +55,12 @@ async function verifyUser(request: Request): Promise<string> {
 // requests can't both slip past the free-tier cap), creating their usage
 // doc on first use and rolling over the counter on a new month. Throws
 // LimitError without writing anything if a free-tier cap is exceeded.
-async function reserveGeneration(uid: string, weeks: number): Promise<Plan> {
+async function reserveGeneration(uid: string, weeks: number): Promise<void> {
   const db = getAdminDb();
   const ref = db.collection("users").doc(uid);
   const monthKey = currentMonthKey();
 
-  return db.runTransaction(async (tx) => {
+  await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const existing = snap.exists ? (snap.data() as UsageDoc) : null;
 
@@ -89,7 +89,6 @@ async function reserveGeneration(uid: string, weeks: number): Promise<Plan> {
       createdAt: existing?.createdAt ?? Date.now(),
     };
     tx.set(ref, next);
-    return plan;
   });
 }
 
@@ -112,37 +111,24 @@ async function refundGeneration(uid: string): Promise<void> {
   }
 }
 
-// Free tier: short, cheap generations — no references, no assessment, no
-// course-level overview. Capped objective/description length keeps token
-// usage (and therefore API cost) down.
-function buildFreePrompt(topic: string, weeks: number, skillLevel: string): string {
-  return `Create a ${weeks}-week course syllabus on "${topic}" for a ${skillLevel} audience.
-
-Break the course into weekly modules, one module per week, with 2-3 lessons
-each. Each module should have a title and a list of lessons. Each lesson
-needs a unique "key" (a short slug, stable across the response, e.g.
-"week1-intro"), a title, a one-sentence summary (max 2 sentences), exactly 2
-concise learning objectives, and an array of prerequisiteLessonKeys
-referencing the "key" of any earlier lesson in this same syllabus that a
-student should complete first (empty array if none). Do not include
-courseOverview, learningOutcomes, assessment, or per-module references —
-leave those fields out entirely. Keep all text brief and to the point.`;
-}
-
-// Paid tier: richer, more detailed generation that justifies the larger
-// token spend — expanded objectives, varied prose, real references, and the
-// course-level framing (overview, outcomes, assessment) free tier skips.
-function buildPaidPrompt(topic: string, weeks: number, skillLevel: string): string {
+// One prompt for every plan — free and paid users get identical content
+// depth and quality. Plan only ever gates the exported PDF's watermark and
+// visual template, never what gets generated. Every section is requested as
+// a clearly labeled schema field (courseOverview, references, assessment,
+// etc.) rather than left to open-ended prose, so the model includes them
+// reliably on every call.
+function buildPrompt(topic: string, weeks: number, skillLevel: string): string {
   return `Create a ${weeks}-week course syllabus on "${topic}" for a ${skillLevel} audience.
 
 Start with a course-level "courseOverview" (2-4 sentences framing what the
 course covers and why it matters) and a "learningOutcomes" array (4-6 items)
-summarizing what a student can do after completing the course.
+summarizing what a learner can do after completing the course.
 
 Break the course into weekly modules, one module per week, with 2-3 lessons
 each. Each module should have a title, a list of lessons, and a
-"references" array of 1-3 real, specific academic readings or textbook
-citations relevant to that week's material (author, title, and
+"references" array of 1-3 real, specific academic readings or sources
+relevant to that week's material — textbooks, key papers, or established
+guidelines/criteria appropriate to the subject (author, title, and
 edition/chapter where applicable) — ground these in recognized, well-known
 sources for the subject rather than inventing obscure or fictional ones.
 
@@ -155,10 +141,12 @@ genuinely useful, not capped at a fixed number), and an array of
 prerequisiteLessonKeys referencing the "key" of any earlier lesson in this
 same syllabus that a student should complete first (empty array if none).
 
-Finally, include an "assessment" array describing the grading breakdown for
-the course (e.g. participation, midterms, final project), each with a
-"name", a "weight" (e.g. "20%") that sums to 100% across all components, and
-a short "description".`;
+Finally, include an "assessment" array describing the course-level
+evaluation breakdown, each with a "name", a "weight" (e.g. "20%") that sums
+to 100% across all components, and a short "description". Adapt the format
+to the subject — exams/participation/final project for academic topics,
+OSCEs/case presentations/practical evaluations for clinical or applied
+topics, etc.`;
 }
 
 export async function POST(request: Request) {
@@ -178,9 +166,8 @@ export async function POST(request: Request) {
     return response as Response;
   }
 
-  let plan: Plan;
   try {
-    plan = await reserveGeneration(uid, weeks);
+    await reserveGeneration(uid, weeks);
   } catch (error) {
     if (error instanceof LimitError) {
       return Response.json({ error: error.message, code: error.code }, { status: 403 });
@@ -189,8 +176,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Couldn't verify your plan. Please try again." }, { status: 500 });
   }
 
-  const prompt =
-    plan === "paid" ? buildPaidPrompt(topic, weeks, skillLevel) : buildFreePrompt(topic, weeks, skillLevel);
+  const prompt = buildPrompt(topic, weeks, skillLevel);
 
   const attempts: string[] = [];
 
