@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
-import { generateRequestSchema, syllabusSchema } from "@/lib/schemas/syllabus";
+import { generateRequestSchema, syllabusSchema, type CourseType } from "@/lib/schemas/syllabus";
 import { normalizeSyllabus } from "@/lib/syllabus-normalize";
 import { verifyFirebaseIdToken, getAdminDb } from "@/lib/firebase-admin";
 import { FREE_MAX_WEEKS, FREE_MONTHLY_GENERATIONS, currentMonthKey, type UsageDoc } from "@/lib/plan";
@@ -112,13 +112,27 @@ async function refundGeneration(uid: string): Promise<void> {
   }
 }
 
+// Course-type-specific instructions, appended to the shared core prompt
+// below. Each one explicitly names which of the three optional schema
+// sections (materialsAndSafety / projectMilestones / participationRubric)
+// to include and tells the model to omit the other two — schema fields are
+// all `.optional()`, so without this the model has no signal for which
+// ones apply to a given course type.
+const COURSE_TYPE_INSTRUCTIONS: Record<CourseType, string> = {
+  lecture: `This is a lecture-based course. Do not include "materialsAndSafety", "projectMilestones", or "participationRubric" — omit those fields entirely and use only the core sections.`,
+  online: `This is an online/asynchronous course. Do not include "materialsAndSafety", "projectMilestones", or "participationRubric" — omit those fields entirely and use only the core sections. Where relevant, reflect the asynchronous format in lesson summaries (e.g. recorded lectures, discussion boards, self-paced work) rather than assuming a live classroom.`,
+  seminar: `This is a discussion-driven seminar course. In addition to the core sections, include a "participationRubric" array (3-5 items) describing how in-class participation is evaluated — each item needs a "criterion" (e.g. "Attendance", "Discussion quality", "Peer feedback") and a "description". Do not include "materialsAndSafety" or "projectMilestones".`,
+  lab: `This is a lab/science course centered on hands-on experimental work. In addition to the core sections, include a "materialsAndSafety" object with a "materials" array (required equipment, supplies, or reagents) and a "safetyNotes" array (safety precautions and protocols relevant to the work). Do not include "projectMilestones" or "participationRubric".`,
+  studio: `This is a studio/practicum course built around a cumulative project. In addition to the core sections, include a "projectMilestones" array (one entry per major checkpoint across the course) — each item needs a "week" (the week number it's due), a "title", and a "description". Do not include "materialsAndSafety" or "participationRubric".`,
+};
+
 // One prompt for every plan — free and paid users get identical content
 // depth and quality. Plan only ever gates the exported PDF's watermark and
 // visual template, never what gets generated. Every section is requested as
 // a clearly labeled schema field (courseOverview, references, assessment,
 // etc.) rather than left to open-ended prose, so the model includes them
 // reliably on every call.
-function buildPrompt(topic: string, weeks: number, skillLevel: string): string {
+function buildPrompt(topic: string, weeks: number, skillLevel: string, courseType: CourseType): string {
   return `Create a ${weeks}-week course syllabus on "${topic}" for a ${skillLevel} audience.
 
 Start with a course-level "courseOverview" (2-4 sentences framing what the
@@ -149,12 +163,14 @@ prerequisiteLessonKeys referencing the "key" of any earlier lesson in this
 same syllabus that a student should complete first (empty array if none).
 A lesson must never list its own key as a prerequisite.
 
-Finally, include an "assessment" array describing the course-level
-evaluation breakdown, each with a "name", a "weight" (e.g. "20%") that sums
-to 100% across all components, and a short "description". Adapt the format
-to the subject — exams/participation/final project for academic topics,
+Include an "assessment" array describing the course-level evaluation
+breakdown, each with a "name", a "weight" (e.g. "20%") that sums to 100%
+across all components, and a short "description". Adapt the format to the
+subject — exams/participation/final project for academic topics,
 OSCEs/case presentations/practical evaluations for clinical or applied
-topics, etc.`;
+topics, etc.
+
+${COURSE_TYPE_INSTRUCTIONS[courseType]}`;
 }
 
 export async function POST(request: Request) {
@@ -165,7 +181,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { topic, weeks, skillLevel } = parsed.data;
+  const { topic, weeks, skillLevel, courseType } = parsed.data;
 
   let uid: string;
   try {
@@ -184,7 +200,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Couldn't verify your plan. Please try again." }, { status: 500 });
   }
 
-  const prompt = buildPrompt(topic, weeks, skillLevel);
+  const prompt = buildPrompt(topic, weeks, skillLevel, courseType);
 
   const attempts: string[] = [];
 

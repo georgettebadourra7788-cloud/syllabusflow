@@ -134,6 +134,8 @@ function styles(theme: (typeof PDF_TEMPLATES)[PdfTemplate]) {
     assessmentName: { fontSize: 10, fontWeight: 700 },
     assessmentWeight: { fontSize: 10, fontWeight: 700, color: theme.accent },
     assessmentDescription: { fontSize: 9, lineHeight: 1.4, color: theme.textMuted, marginBottom: 6 },
+    twoColRow: { flexDirection: "row", gap: 20 },
+    twoColItem: { flex: 1 },
     footer: {
       position: "absolute",
       bottom: 24,
@@ -256,6 +258,61 @@ export function SyllabusDocument({ syllabus, lessonTitles, template, watermark }
               <LessonList mod={mod} lessonTitles={lessonTitles} s={s} />
             </View>
           ),
+        )}
+
+        {syllabus.materialsAndSafety && (
+          <View style={s.assessmentBlock} wrap={false}>
+            <Text style={s.sectionLabel}>Materials &amp; Safety</Text>
+            <View style={s.twoColRow}>
+              {syllabus.materialsAndSafety.materials.length > 0 && (
+                <View style={s.twoColItem}>
+                  <Text style={s.objectivesLabel}>Materials</Text>
+                  {syllabus.materialsAndSafety.materials.map((item, idx) => (
+                    <Text key={idx} style={s.objectiveItem}>
+                      • {item}
+                    </Text>
+                  ))}
+                </View>
+              )}
+              {syllabus.materialsAndSafety.safetyNotes.length > 0 && (
+                <View style={s.twoColItem}>
+                  <Text style={s.objectivesLabel}>Safety notes</Text>
+                  {syllabus.materialsAndSafety.safetyNotes.map((item, idx) => (
+                    <Text key={idx} style={s.objectiveItem}>
+                      • {item}
+                    </Text>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
+        {syllabus.projectMilestones && syllabus.projectMilestones.length > 0 && (
+          <View style={s.assessmentBlock} wrap={false}>
+            <Text style={s.sectionLabel}>Project milestones</Text>
+            {syllabus.projectMilestones.map((milestone, i) => (
+              <View key={i}>
+                <View style={s.assessmentRow}>
+                  <Text style={s.assessmentName}>{milestone.title}</Text>
+                  <Text style={s.assessmentWeight}>Week {milestone.week}</Text>
+                </View>
+                <Text style={s.assessmentDescription}>{milestone.description}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {syllabus.participationRubric && syllabus.participationRubric.length > 0 && (
+          <View style={s.assessmentBlock} wrap={false}>
+            <Text style={s.sectionLabel}>Participation rubric</Text>
+            {syllabus.participationRubric.map((criterion, i) => (
+              <View key={i}>
+                <Text style={s.assessmentName}>{criterion.criterion}</Text>
+                <Text style={s.assessmentDescription}>{criterion.description}</Text>
+              </View>
+            ))}
+          </View>
         )}
 
         {syllabus.assessment && syllabus.assessment.length > 0 && (
