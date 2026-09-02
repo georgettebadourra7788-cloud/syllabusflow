@@ -14,7 +14,8 @@ import { COURSE_TYPES, COURSE_TYPE_LABELS, type CourseType, type Syllabus } from
 import { SyllabusDocument } from "@/lib/pdf/SyllabusDocument";
 import { PDF_TEMPLATES, PREMIUM_TEMPLATES, type PdfTemplate } from "@/lib/pdf/templates";
 import { buildHtmlDocument } from "@/lib/html-export";
-import { buildQuizOutline, buildOutcomesCsv, buildSlideOutline } from "@/lib/text-exports";
+import { buildQuizOutline, buildSlideOutline } from "@/lib/text-exports";
+import { buildOutcomesWorkbookBlob } from "@/lib/xlsx-export";
 
 const SKILL_LEVELS = ["beginner", "intermediate", "advanced"] as const;
 
@@ -189,8 +190,7 @@ export default function SyllabusPage() {
     }
   }
 
-  function downloadTextFile(content: string, filename: string, mimeType: string) {
-    const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
+  function downloadBlob(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -199,6 +199,10 @@ export default function SyllabusPage() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  }
+
+  function downloadTextFile(content: string, filename: string, mimeType: string) {
+    downloadBlob(new Blob([content], { type: `${mimeType};charset=utf-8` }), filename);
   }
 
   function handleDownloadHtml() {
@@ -211,9 +215,10 @@ export default function SyllabusPage() {
     downloadTextFile(buildQuizOutline(syllabus), `${slugify(syllabus.courseTitle)}-quiz-outline.txt`, "text/plain");
   }
 
-  function handleDownloadOutcomesCsv() {
+  async function handleDownloadOutcomesXlsx() {
     if (!syllabus || !isPaid) return;
-    downloadTextFile(buildOutcomesCsv(syllabus), `${slugify(syllabus.courseTitle)}-outcomes.csv`, "text/csv");
+    const blob = await buildOutcomesWorkbookBlob(syllabus);
+    downloadBlob(blob, `${slugify(syllabus.courseTitle)}-outcomes.xlsx`);
   }
 
   function handleDownloadSlideOutline() {
@@ -694,12 +699,12 @@ export default function SyllabusPage() {
                   Quiz outline {!isPaid && "🔒"}
                 </button>
                 <button
-                  onClick={handleDownloadOutcomesCsv}
+                  onClick={handleDownloadOutcomesXlsx}
                   disabled={!isPaid}
                   title={!isPaid ? "Upgrade to unlock" : undefined}
                   className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:bg-white"
                 >
-                  Outcomes CSV {!isPaid && "🔒"}
+                  Outcomes .xlsx {!isPaid && "🔒"}
                 </button>
                 <button
                   onClick={handleDownloadSlideOutline}
@@ -710,7 +715,8 @@ export default function SyllabusPage() {
               </div>
               {!isPaid && (
                 <p className="mt-3 text-center text-xs text-slate-400">
-                  Free PDFs include a SyllabusFlow watermark, and the quiz outline/outcomes CSV exports are Pro-only.{" "}
+                  Free PDFs include a SyllabusFlow watermark, and the quiz outline/outcomes .xlsx exports are
+                  Pro-only.{" "}
                   <Link href="/upgrade" className="font-semibold text-indigo-600 underline">
                     Upgrade
                   </Link>{" "}

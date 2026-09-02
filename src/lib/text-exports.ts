@@ -1,8 +1,9 @@
 import type { Syllabus } from "@/lib/schemas/syllabus";
 
-// All three exports below derive entirely from the already-generated
-// Syllabus object — no new Gemini call, so they're instant and free
-// regardless of plan.
+// Both exports below derive entirely from the already-generated Syllabus
+// object — no new Gemini call, so they're instant and free regardless of
+// plan. (The outcomes spreadsheet export lives separately in
+// src/lib/xlsx-export.ts, since it needs the exceljs library.)
 
 function moduleObjectives(mod: Syllabus["modules"][number]): string[] {
   return mod.lessons.flatMap((lesson) => lesson.learningObjectives);
@@ -42,22 +43,6 @@ export function buildQuizOutline(syllabus: Syllabus): string {
     "",
     sections.join("\n\n"),
   ].join("\n");
-}
-
-function csvField(value: string): string {
-  return `"${value.replace(/"/g, '""')}"`;
-}
-
-export function buildOutcomesCsv(syllabus: Syllabus): string {
-  const header = ["Week", "Module", "Objective"].map(csvField).join(",");
-  const rows = syllabus.modules.flatMap((mod, i) =>
-    moduleObjectives(mod).map((objective) =>
-      [String(i + 1), mod.title, objective].map(csvField).join(","),
-    ),
-  );
-  // CRLF line endings — the conventional choice for CSV import tools,
-  // including Canvas's and Moodle's bulk uploaders.
-  return [header, ...rows].join("\r\n");
 }
 
 export function buildSlideOutline(syllabus: Syllabus): string {
