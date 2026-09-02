@@ -48,7 +48,7 @@ export function buildQuizOutline(syllabus: Syllabus): string {
 export function buildSlideOutline(syllabus: Syllabus): string {
   const sections = syllabus.modules.map((mod, i) => {
     const objectives = moduleObjectives(mod);
-    const bullets = (objectives.length > 0 ? objectives : mod.lessons.map((l) => l.title)).slice(0, 5);
+    const bullets = objectives.length > 0 ? objectives : mod.lessons.map((l) => l.title);
 
     return [`Week ${i + 1}: ${mod.title.replace(/^Week \d+:\s*/, "")}`, ...bullets.map((b) => `  - ${b}`)].join(
       "\n",
