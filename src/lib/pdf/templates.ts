@@ -1,5 +1,18 @@
 export type PdfTemplate = "basic" | "modern" | "classic";
 
+// Every numeric spacing value (page margins, section/module gaps, card
+// padding) is shared across all three templates and defined ONCE here —
+// templates vary font family, color, and structural shape (title
+// alignment, divider treatment) but never a spacing number. Two rounds of
+// "template X ended up with a slightly different number than the others"
+// regressions (each one silently shifting that template's page count for
+// otherwise-identical content) is what this is meant to make structurally
+// impossible rather than something to keep manually re-tuning.
+export const SHARED_SPACING = {
+  pageHorizontalPadding: 40,
+  moduleSpacing: 12,
+} as const;
+
 export interface TemplateTheme {
   label: string;
   fontFamily: "Helvetica" | "Times-Roman";
@@ -10,6 +23,12 @@ export interface TemplateTheme {
   border: string;
   pillBg: string;
   pillText: string;
+  // Structural (shape, not spacing-scale) differentiators.
+  titleAlign: "left" | "center";
+  // "Classic" formats each module as a formal centered heading between
+  // horizontal rules (traditional academic syllabus style) instead of the
+  // numbered-badge card the other templates use.
+  formalDividers: boolean;
 }
 
 // "basic" is the only template available on the free plan — deliberately
@@ -25,6 +44,8 @@ export const PDF_TEMPLATES: Record<PdfTemplate, TemplateTheme> = {
     border: "#e2e8f0",
     pillBg: "#f1f5f9",
     pillText: "#475569",
+    titleAlign: "left",
+    formalDividers: false,
   },
   modern: {
     label: "Modern",
@@ -36,6 +57,8 @@ export const PDF_TEMPLATES: Record<PdfTemplate, TemplateTheme> = {
     border: "#e0e7ff",
     pillBg: "#fffbeb",
     pillText: "#b45309",
+    titleAlign: "left",
+    formalDividers: false,
   },
   classic: {
     label: "Classic",
@@ -47,6 +70,8 @@ export const PDF_TEMPLATES: Record<PdfTemplate, TemplateTheme> = {
     border: "#e7e0d8",
     pillBg: "#f5f0e8",
     pillText: "#7c2d12",
+    titleAlign: "center",
+    formalDividers: true,
   },
 };
 

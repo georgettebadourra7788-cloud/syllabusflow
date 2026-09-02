@@ -10,9 +10,12 @@ import { Navbar } from "@/components/Navbar";
 import { getFirebaseAuth, getFirebaseDb, googleAuthProvider } from "@/lib/firebase";
 import { useAuthUser } from "@/lib/useAuthUser";
 import { FREE_MAX_WEEKS, FREE_MONTHLY_GENERATIONS, type UsageDoc } from "@/lib/plan";
-import type { Syllabus } from "@/lib/schemas/syllabus";
+import { COURSE_TYPES, COURSE_TYPE_LABELS, type CourseType, type Syllabus } from "@/lib/schemas/syllabus";
 import { SyllabusDocument } from "@/lib/pdf/SyllabusDocument";
 import { PDF_TEMPLATES, PREMIUM_TEMPLATES, type PdfTemplate } from "@/lib/pdf/templates";
+import { buildHtmlDocument } from "@/lib/html-export";
+import { buildQuizOutline, buildSlideOutline } from "@/lib/text-exports";
+import { buildOutcomesWorkbookBlob } from "@/lib/xlsx-export";
 
 const SKILL_LEVELS = ["beginner", "intermediate", "advanced"] as const;
 
@@ -61,119 +64,6 @@ function buildFlow(syllabus: Syllabus): { nodes: Node[]; edges: Edge[] } {
   return { nodes, edges };
 }
 
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function buildHtmlDocument(syllabus: Syllabus, lessonTitles: Map<string, string>): string {
-  const modulesHtml = syllabus.modules
-    .map(
-      (mod, i) => `
-        <section class="module">
-          <div class="module-header">
-            <span class="module-number">${i + 1}</span>
-            <h2>${escapeHtml(mod.title)}</h2>
-          </div>
-          <div class="lessons">
-            ${mod.lessons
-              .map(
-                (lesson) => `
-              <div class="lesson">
-                <h3 class="lesson-title">${escapeHtml(lesson.title)}</h3>
-                <p class="lesson-summary">${escapeHtml(lesson.summary)}</p>
-                ${
-                  lesson.learningObjectives.length > 0
-                    ? `<p class="objectives-label">Objectives</p>
-                       <ul class="objectives">${lesson.learningObjectives
-                        .map((o) => `<li>${escapeHtml(o)}</li>`)
-                        .join("")}</ul>`
-                    : ""
-                }
-                ${
-                  lesson.prerequisiteLessonKeys.length > 0
-                    ? `<div class="requires"><span class="requires-label">Requires:</span> ${lesson.prerequisiteLessonKeys
-                        .map(
-                          (key) =>
-                            `<span class="pill pill-amber">${escapeHtml(lessonTitles.get(key) ?? key)}</span>`,
-                        )
-                        .join("")}</div>`
-                    : ""
-                }
-              </div>`,
-              )
-              .join("")}
-          </div>
-        </section>`,
-    )
-    .join("");
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<title>${escapeHtml(syllabus.courseTitle)}</title>
-<style>
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    padding: 3rem 1.5rem;
-    background: #f8fafc;
-    color: #0f172a;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  }
-  main { max-width: 720px; margin: 0 auto; }
-  h1 { font-size: 1.875rem; font-weight: 700; margin: 0 0 0.75rem; }
-  h2 { font-size: 1.125rem; font-weight: 600; margin: 0; }
-  h3.lesson-title { font-size: 1rem; font-weight: 600; margin: 0 0 0.375rem; }
-  .badges { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 2.5rem; }
-  .badge {
-    display: inline-flex; align-items: center; border-radius: 9999px;
-    padding: 0.25rem 0.75rem; font-size: 0.75rem; font-weight: 600;
-  }
-  .badge-weeks { background: #eef2ff; color: #4338ca; }
-  .badge-audience { background: #f5f3ff; color: #6d28d9; }
-  .module { background: #fff; border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1.5rem; margin-bottom: 1.5rem; }
-  .module-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
-  .module-number {
-    display: flex; align-items: center; justify-content: center;
-    width: 2rem; height: 2rem; border-radius: 9999px; flex-shrink: 0;
-    background: #eef2ff; color: #4338ca; font-weight: 600; font-size: 0.875rem;
-  }
-  .lessons { display: flex; flex-direction: column; gap: 1.25rem; padding-left: 2.75rem; }
-  .lesson { border-top: 1px solid #f1f5f9; padding-top: 1.25rem; }
-  .lesson:first-child { border-top: none; padding-top: 0; }
-  .lesson-summary { font-size: 0.875rem; line-height: 1.6; color: #475569; margin: 0 0 0.75rem; }
-  .objectives-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: #94a3b8; margin: 0 0 0.375rem; }
-  .objectives { margin: 0 0 0.75rem; padding-left: 1.25rem; font-size: 0.875rem; line-height: 1.6; color: #334155; }
-  .objectives li { margin-bottom: 0.25rem; }
-  .pills { display: flex; flex-wrap: wrap; gap: 0.375rem; }
-  .requires { margin-top: 0.75rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; }
-  .requires-label { font-size: 0.75rem; font-weight: 500; color: #94a3b8; }
-  .pill { display: inline-flex; align-items: center; border-radius: 9999px; background: #f1f5f9; color: #475569; padding: 0.25rem 0.625rem; font-size: 0.75rem; font-weight: 500; }
-  .pill-amber { background: #fffbeb; color: #b45309; }
-  @media print {
-    body { background: #fff; padding: 0; }
-    .module { break-inside: avoid; box-shadow: none; }
-  }
-</style>
-</head>
-<body>
-<main>
-  <h1>${escapeHtml(syllabus.courseTitle)}</h1>
-  <div class="badges">
-    <span class="badge badge-weeks">${syllabus.durationWeeks} weeks</span>
-    <span class="badge badge-audience">${escapeHtml(syllabus.targetAudience)}</span>
-  </div>
-  ${modulesHtml}
-</main>
-</body>
-</html>`;
-}
-
 function slugify(text: string): string {
   return (
     text
@@ -202,6 +92,7 @@ export default function SyllabusPage() {
   const [topic, setTopic] = useState("");
   const [weeks, setWeeks] = useState(6);
   const [skillLevel, setSkillLevel] = useState<(typeof SKILL_LEVELS)[number]>("beginner");
+  const [courseType, setCourseType] = useState<CourseType>("lecture");
   const [syllabus, setSyllabus] = useState<Syllabus | null>(null);
   const [busy, setBusy] = useState<"idle" | "generating">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -213,6 +104,12 @@ export default function SyllabusPage() {
   const isPaid = usage?.plan === "paid";
   const maxWeeks = isPaid ? 52 : FREE_MAX_WEEKS;
   const effectiveTemplate = isPaid ? template : "basic";
+  const theme = PDF_TEMPLATES[effectiveTemplate];
+  // Mirrors the PDF's fontFamily choice so the on-page preview matches what
+  // gets downloaded — the PDF's built-in Times-Roman isn't a web font, so
+  // map it to an equivalent serif stack here.
+  const previewFontFamily =
+    theme.fontFamily === "Times-Roman" ? "Georgia, 'Times New Roman', Times, serif" : undefined;
 
   useEffect(() => {
     if (busy !== "generating") return;
@@ -256,7 +153,7 @@ export default function SyllabusPage() {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({ topic, weeks, skillLevel }),
+        body: JSON.stringify({ topic, weeks, skillLevel, courseType }),
       });
       console.log("[generate] response status:", response.status);
 
@@ -293,18 +190,44 @@ export default function SyllabusPage() {
     }
   }
 
-  function handleDownloadHtml() {
-    if (!syllabus || !lessonTitles) return;
-
-    const blob = new Blob([buildHtmlDocument(syllabus, lessonTitles)], { type: "text/html;charset=utf-8" });
+  function downloadBlob(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${slugify(syllabus.courseTitle)}.html`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  }
+
+  function downloadTextFile(content: string, filename: string, mimeType: string) {
+    downloadBlob(new Blob([content], { type: `${mimeType};charset=utf-8` }), filename);
+  }
+
+  function handleDownloadHtml() {
+    if (!syllabus || !lessonTitles) return;
+    downloadTextFile(buildHtmlDocument(syllabus, lessonTitles), `${slugify(syllabus.courseTitle)}.html`, "text/html");
+  }
+
+  function handleDownloadQuizOutline() {
+    if (!syllabus || !isPaid) return;
+    downloadTextFile(buildQuizOutline(syllabus), `${slugify(syllabus.courseTitle)}-quiz-outline.txt`, "text/plain");
+  }
+
+  async function handleDownloadOutcomesXlsx() {
+    if (!syllabus || !isPaid) return;
+    const blob = await buildOutcomesWorkbookBlob(syllabus);
+    downloadBlob(blob, `${slugify(syllabus.courseTitle)}-outcomes.xlsx`);
+  }
+
+  function handleDownloadSlideOutline() {
+    if (!syllabus) return;
+    downloadTextFile(
+      buildSlideOutline(syllabus),
+      `${slugify(syllabus.courseTitle)}-slide-outline.txt`,
+      "text/plain",
+    );
   }
 
   async function handleDownloadPdf() {
@@ -413,6 +336,21 @@ export default function SyllabusPage() {
               </label>
             </div>
 
+            <label className="grid gap-1.5">
+              <span className="text-sm font-medium text-slate-700">Course type</span>
+              <select
+                value={courseType}
+                onChange={(e) => setCourseType(e.target.value as CourseType)}
+                className={inputClasses}
+              >
+                {COURSE_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {COURSE_TYPE_LABELS[type]}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             {user ? (
               <button
                 type="submit"
@@ -453,20 +391,35 @@ export default function SyllabusPage() {
         )}
 
         {syllabus && (
-          <section className="mt-16">
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm shadow-slate-200/60">
-              <h2 className="text-2xl font-bold text-slate-900">{syllabus.courseTitle}</h2>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
+          <section className="mt-16" style={{ fontFamily: previewFontFamily }}>
+            <div
+              className={`rounded-2xl border bg-white p-8 shadow-sm shadow-slate-200/60 ${
+                theme.titleAlign === "center" ? "text-center" : ""
+              }`}
+              style={{ borderColor: theme.border }}
+            >
+              <h2 className="text-2xl font-bold" style={{ color: theme.text }}>
+                {syllabus.courseTitle}
+              </h2>
+              <div className={`mt-3 flex flex-wrap gap-2 ${theme.titleAlign === "center" ? "justify-center" : ""}`}>
+                <span
+                  className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+                  style={{ backgroundColor: theme.accentSoft, color: theme.accent }}
+                >
                   {syllabus.durationWeeks} weeks
                 </span>
-                <span className="inline-flex items-center rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
+                <span
+                  className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+                  style={{ backgroundColor: theme.accentSoft, color: theme.accent }}
+                >
                   {syllabus.targetAudience}
                 </span>
               </div>
 
               {syllabus.courseOverview && (
-                <p className="mt-4 text-sm leading-relaxed text-slate-600">{syllabus.courseOverview}</p>
+                <p className="mt-4 text-sm leading-relaxed" style={{ color: theme.textMuted }}>
+                  {syllabus.courseOverview}
+                </p>
               )}
 
               {syllabus.learningOutcomes && syllabus.learningOutcomes.length > 0 && (
@@ -506,14 +459,30 @@ export default function SyllabusPage() {
               {syllabus.modules.map((mod, i) => (
                 <div
                   key={i}
-                  className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60"
+                  className={
+                    theme.formalDividers
+                      ? "border-y-2 px-6 py-6"
+                      : "rounded-2xl border bg-white p-6 shadow-sm shadow-slate-200/60"
+                  }
+                  style={theme.formalDividers ? { borderColor: theme.accent } : { borderColor: theme.border }}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-sm font-semibold text-indigo-600">
-                      {i + 1}
-                    </span>
-                    <h3 className="text-lg font-semibold text-slate-900">{mod.title}</h3>
-                  </div>
+                  {theme.formalDividers ? (
+                    <h3 className="text-center text-lg font-semibold uppercase tracking-wide" style={{ color: theme.text }}>
+                      {mod.title}
+                    </h3>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
+                        style={{ backgroundColor: theme.accentSoft, color: theme.accent }}
+                      >
+                        {i + 1}
+                      </span>
+                      <h3 className="text-lg font-semibold" style={{ color: theme.text }}>
+                        {mod.title}
+                      </h3>
+                    </div>
+                  )}
 
                   <ul className="mt-5 grid gap-5 sm:pl-11">
                     {mod.lessons.map((lesson) => (
@@ -537,12 +506,14 @@ export default function SyllabusPage() {
                         {lesson.prerequisiteLessonKeys.length > 0 && (
                           <div className="mt-3 flex flex-wrap items-center gap-1.5">
                             <span className="text-xs font-medium text-slate-400">Requires:</span>
-                            {lesson.prerequisiteLessonKeys.map((key) => (
+                            {lesson.prerequisiteLessonKeys.map((key, idx) => (
                               <span
                                 key={key}
-                                className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700"
+                                className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium"
+                                style={{ backgroundColor: theme.pillBg, color: theme.pillText }}
                               >
                                 {lessonTitles?.get(key) ?? key}
+                                {idx < lesson.prerequisiteLessonKeys.length - 1 ? "," : ""}
                               </span>
                             ))}
                           </div>
@@ -567,17 +538,112 @@ export default function SyllabusPage() {
               ))}
             </div>
 
+            {syllabus.materialsAndSafety && (
+              <div
+                className="mt-6 rounded-2xl border bg-white p-6 shadow-sm shadow-slate-200/60"
+                style={{ borderColor: theme.border }}
+              >
+                <h3 className="text-sm font-semibold" style={{ color: theme.text }}>
+                  Materials &amp; Safety
+                </h3>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  {syllabus.materialsAndSafety.materials.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Materials</p>
+                      <ul className="mt-1.5 list-disc space-y-1 pl-5 text-sm text-slate-700">
+                        {syllabus.materialsAndSafety.materials.map((item, idx) => (
+                          <li key={idx}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {syllabus.materialsAndSafety.safetyNotes.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Safety notes</p>
+                      <ul className="mt-1.5 list-disc space-y-1 pl-5 text-sm text-slate-700">
+                        {syllabus.materialsAndSafety.safetyNotes.map((item, idx) => (
+                          <li key={idx}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {syllabus.projectMilestones && syllabus.projectMilestones.length > 0 && (
+              <div
+                className="mt-6 rounded-2xl border bg-white p-6 shadow-sm shadow-slate-200/60"
+                style={{ borderColor: theme.border }}
+              >
+                <h3 className="text-sm font-semibold" style={{ color: theme.text }}>
+                  Project milestones
+                </h3>
+                <div className="mt-4 grid gap-4">
+                  {syllabus.projectMilestones.map((milestone, i) => (
+                    <div key={i}>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className="font-semibold" style={{ color: theme.text }}>
+                          {milestone.title}
+                        </p>
+                        <p className="text-sm font-semibold" style={{ color: theme.accent }}>
+                          Week {milestone.week}
+                        </p>
+                      </div>
+                      <p className="mt-1 text-sm leading-relaxed" style={{ color: theme.textMuted }}>
+                        {milestone.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {syllabus.participationRubric && syllabus.participationRubric.length > 0 && (
+              <div
+                className="mt-6 rounded-2xl border bg-white p-6 shadow-sm shadow-slate-200/60"
+                style={{ borderColor: theme.border }}
+              >
+                <h3 className="text-sm font-semibold" style={{ color: theme.text }}>
+                  Participation rubric
+                </h3>
+                <div className="mt-4 grid gap-4">
+                  {syllabus.participationRubric.map((criterion, i) => (
+                    <div key={i}>
+                      <p className="font-semibold" style={{ color: theme.text }}>
+                        {criterion.criterion}
+                      </p>
+                      <p className="mt-1 text-sm leading-relaxed" style={{ color: theme.textMuted }}>
+                        {criterion.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {syllabus.assessment && syllabus.assessment.length > 0 && (
-              <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60">
-                <h3 className="text-sm font-semibold text-slate-900">Assessment</h3>
+              <div
+                className="mt-6 rounded-2xl border bg-white p-6 shadow-sm shadow-slate-200/60"
+                style={{ borderColor: theme.border }}
+              >
+                <h3 className="text-sm font-semibold" style={{ color: theme.text }}>
+                  Assessment
+                </h3>
                 <div className="mt-4 grid gap-4">
                   {syllabus.assessment.map((component, i) => (
                     <div key={i}>
                       <div className="flex items-baseline justify-between gap-3">
-                        <p className="font-semibold text-slate-900">{component.name}</p>
-                        <p className="text-sm font-semibold text-indigo-600">{component.weight}</p>
+                        <p className="font-semibold" style={{ color: theme.text }}>
+                          {component.name}
+                        </p>
+                        <p className="text-sm font-semibold" style={{ color: theme.accent }}>
+                          {component.weight}
+                        </p>
                       </div>
-                      <p className="mt-1 text-sm leading-relaxed text-slate-600">{component.description}</p>
+                      <p className="mt-1 text-sm leading-relaxed" style={{ color: theme.textMuted }}>
+                        {component.description}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -622,13 +688,39 @@ export default function SyllabusPage() {
                   Download as HTML
                 </button>
               </div>
+
+              <div className="mt-3 flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-3">
+                <button
+                  onClick={handleDownloadQuizOutline}
+                  disabled={!isPaid}
+                  title={!isPaid ? "Upgrade to unlock" : undefined}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:bg-white"
+                >
+                  Quiz outline {!isPaid && "🔒"}
+                </button>
+                <button
+                  onClick={handleDownloadOutcomesXlsx}
+                  disabled={!isPaid}
+                  title={!isPaid ? "Upgrade to unlock" : undefined}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:bg-white"
+                >
+                  Outcomes .xlsx {!isPaid && "🔒"}
+                </button>
+                <button
+                  onClick={handleDownloadSlideOutline}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  Slide deck outline
+                </button>
+              </div>
               {!isPaid && (
                 <p className="mt-3 text-center text-xs text-slate-400">
-                  Free PDFs include a SyllabusFlow watermark.{" "}
+                  Free PDFs include a SyllabusFlow watermark, and the quiz outline/outcomes .xlsx exports are
+                  Pro-only.{" "}
                   <Link href="/upgrade" className="font-semibold text-indigo-600 underline">
                     Upgrade
                   </Link>{" "}
-                  to remove it and unlock premium templates.
+                  to remove the watermark and unlock premium templates and exports.
                 </p>
               )}
             </div>
