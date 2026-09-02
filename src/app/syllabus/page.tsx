@@ -14,6 +14,7 @@ import { COURSE_TYPES, COURSE_TYPE_LABELS, type CourseType, type Syllabus } from
 import { SyllabusDocument } from "@/lib/pdf/SyllabusDocument";
 import { PDF_TEMPLATES, PREMIUM_TEMPLATES, type PdfTemplate } from "@/lib/pdf/templates";
 import { buildHtmlDocument } from "@/lib/html-export";
+import { buildQuizOutline, buildOutcomesCsv, buildSlideOutline } from "@/lib/text-exports";
 
 const SKILL_LEVELS = ["beginner", "intermediate", "advanced"] as const;
 
@@ -188,18 +189,40 @@ export default function SyllabusPage() {
     }
   }
 
-  function handleDownloadHtml() {
-    if (!syllabus || !lessonTitles) return;
-
-    const blob = new Blob([buildHtmlDocument(syllabus, lessonTitles)], { type: "text/html;charset=utf-8" });
+  function downloadTextFile(content: string, filename: string, mimeType: string) {
+    const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${slugify(syllabus.courseTitle)}.html`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  }
+
+  function handleDownloadHtml() {
+    if (!syllabus || !lessonTitles) return;
+    downloadTextFile(buildHtmlDocument(syllabus, lessonTitles), `${slugify(syllabus.courseTitle)}.html`, "text/html");
+  }
+
+  function handleDownloadQuizOutline() {
+    if (!syllabus) return;
+    downloadTextFile(buildQuizOutline(syllabus), `${slugify(syllabus.courseTitle)}-quiz-outline.txt`, "text/plain");
+  }
+
+  function handleDownloadOutcomesCsv() {
+    if (!syllabus) return;
+    downloadTextFile(buildOutcomesCsv(syllabus), `${slugify(syllabus.courseTitle)}-outcomes.csv`, "text/csv");
+  }
+
+  function handleDownloadSlideOutline() {
+    if (!syllabus) return;
+    downloadTextFile(
+      buildSlideOutline(syllabus),
+      `${slugify(syllabus.courseTitle)}-slide-outline.txt`,
+      "text/plain",
+    );
   }
 
   async function handleDownloadPdf() {
@@ -658,6 +681,27 @@ export default function SyllabusPage() {
                   className="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50"
                 >
                   Download as HTML
+                </button>
+              </div>
+
+              <div className="mt-3 flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-3">
+                <button
+                  onClick={handleDownloadQuizOutline}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  Quiz outline
+                </button>
+                <button
+                  onClick={handleDownloadOutcomesCsv}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  Outcomes CSV
+                </button>
+                <button
+                  onClick={handleDownloadSlideOutline}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  Slide deck outline
                 </button>
               </div>
               {!isPaid && (
