@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 import type { Syllabus } from "@/lib/schemas/syllabus";
 import { PDF_TEMPLATES, SHARED_SPACING, type PdfTemplate } from "@/lib/pdf/templates";
@@ -56,14 +57,21 @@ function styles(theme: (typeof PDF_TEMPLATES)[PdfTemplate]) {
     overviewText: { fontSize: 10, lineHeight: 1.5, color: theme.textMuted, marginBottom: 14 },
     outcomeItem: { fontSize: 10, lineHeight: 1.5, color: theme.text, marginBottom: 2, paddingLeft: 10 },
     outcomesBlock: { marginBottom: 20 },
+    // No marginBottom here — react-pdf treats a node's own trailing margin
+    // as part of what must fit on the page before deciding whether to
+    // break. A module whose bordered content lands right at the page edge
+    // (fits by itself) but whose margin pushes just past it gets shoved
+    // *entirely* onto the next page — wasting whatever room was left,
+    // rather than the couple of missing points the margin needed. Spacing
+    // between modules is added as a marginless spacer instead (below),
+    // which carries none of that risk.
     module: {
       borderWidth: 1,
       borderColor: theme.border,
       borderRadius: 8,
       padding: 14,
-      marginBottom: SHARED_SPACING.moduleSpacing,
-      breakInside: "avoid",
     },
+    moduleGap: { height: SHARED_SPACING.moduleSpacing },
     // Formal-divider modules (Classic) skip the bordered card + numbered
     // badge in favor of a centered heading between horizontal rules —
     // traditional printed-syllabus formatting.
@@ -73,8 +81,6 @@ function styles(theme: (typeof PDF_TEMPLATES)[PdfTemplate]) {
       borderBottomWidth: 1.5,
       borderBottomColor: theme.accent,
       paddingVertical: 14,
-      marginBottom: SHARED_SPACING.moduleSpacing,
-      breakInside: "avoid",
     },
     moduleFormalHeader: { alignItems: "center", marginBottom: 10 },
     moduleFormalTitle: {
@@ -233,32 +239,36 @@ export function SyllabusDocument({ syllabus, lessonTitles, template, watermark }
           </View>
         )}
 
-        {syllabus.modules.map((mod, i) =>
-          theme.formalDividers ? (
-            // Unbreakable only at lesson granularity (below) — a whole
-            // module can span multiple lessons and would otherwise be one
-            // large atomic block. If that block didn't fit in whatever
-            // space remained on the current page, react-pdf would push it
-            // *entirely* to the next page, wasting the leftover space and
-            // cascading into whatever follows (including Assessment,
-            // which then also lands on a fresh, mostly-empty page even
-            // though it may have fit on the original one).
-            <View key={i} style={s.moduleFormal}>
-              <View style={s.moduleFormalHeader}>
-                <Text style={s.moduleFormalTitle}>{mod.title}</Text>
+        {syllabus.modules.map((mod, i) => (
+          <Fragment key={i}>
+            {i > 0 && <View style={s.moduleGap} />}
+            {theme.formalDividers ? (
+              // Unbreakable only at lesson granularity (below) — a whole
+              // module can span multiple lessons and would otherwise be one
+              // large atomic block. If that block didn't fit in whatever
+              // space remained on the current page, react-pdf would push it
+              // *entirely* to the next page, wasting the leftover space and
+              // cascading into whatever follows (including Assessment,
+              // which then also lands on a fresh, mostly-empty page even
+              // though it may have fit on the original one).
+              <View style={s.moduleFormal}>
+                <View style={s.moduleFormalHeader}>
+                  <Text style={s.moduleFormalTitle}>{mod.title}</Text>
+                </View>
+                <LessonList mod={mod} lessonTitles={lessonTitles} s={s} />
               </View>
-              <LessonList mod={mod} lessonTitles={lessonTitles} s={s} />
-            </View>
-          ) : (
-            <View key={i} style={s.module}>
-              <View style={s.moduleHeaderRow}>
-                <Text style={s.moduleNumber}>{i + 1}</Text>
-                <Text style={s.moduleTitle}>{mod.title}</Text>
+            ) : (
+              <View style={s.module}>
+                <View style={s.moduleHeaderRow}>
+                  <Text style={s.moduleNumber}>{i + 1}</Text>
+                  <Text style={s.moduleTitle}>{mod.title}</Text>
+                </View>
+                <LessonList mod={mod} lessonTitles={lessonTitles} s={s} />
               </View>
-              <LessonList mod={mod} lessonTitles={lessonTitles} s={s} />
-            </View>
-          ),
-        )}
+            )}
+          </Fragment>
+        ))}
+        {syllabus.modules.length > 0 && <View style={s.moduleGap} />}
 
         {syllabus.materialsAndSafety && (
           <View style={s.assessmentBlock} wrap={false}>
