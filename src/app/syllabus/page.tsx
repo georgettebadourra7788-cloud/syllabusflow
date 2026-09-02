@@ -207,12 +207,12 @@ export default function SyllabusPage() {
   }
 
   function handleDownloadQuizOutline() {
-    if (!syllabus) return;
+    if (!syllabus || !isPaid) return;
     downloadTextFile(buildQuizOutline(syllabus), `${slugify(syllabus.courseTitle)}-quiz-outline.txt`, "text/plain");
   }
 
   function handleDownloadOutcomesCsv() {
-    if (!syllabus) return;
+    if (!syllabus || !isPaid) return;
     downloadTextFile(buildOutcomesCsv(syllabus), `${slugify(syllabus.courseTitle)}-outcomes.csv`, "text/csv");
   }
 
@@ -687,15 +687,19 @@ export default function SyllabusPage() {
               <div className="mt-3 flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-3">
                 <button
                   onClick={handleDownloadQuizOutline}
-                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                  disabled={!isPaid}
+                  title={!isPaid ? "Upgrade to unlock" : undefined}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:bg-white"
                 >
-                  Quiz outline
+                  Quiz outline {!isPaid && "🔒"}
                 </button>
                 <button
                   onClick={handleDownloadOutcomesCsv}
-                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                  disabled={!isPaid}
+                  title={!isPaid ? "Upgrade to unlock" : undefined}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:bg-white"
                 >
-                  Outcomes CSV
+                  Outcomes CSV {!isPaid && "🔒"}
                 </button>
                 <button
                   onClick={handleDownloadSlideOutline}
@@ -706,11 +710,11 @@ export default function SyllabusPage() {
               </div>
               {!isPaid && (
                 <p className="mt-3 text-center text-xs text-slate-400">
-                  Free PDFs include a SyllabusFlow watermark.{" "}
+                  Free PDFs include a SyllabusFlow watermark, and the quiz outline/outcomes CSV exports are Pro-only.{" "}
                   <Link href="/upgrade" className="font-semibold text-indigo-600 underline">
                     Upgrade
                   </Link>{" "}
-                  to remove it and unlock premium templates.
+                  to remove the watermark and unlock premium templates and exports.
                 </p>
               )}
             </div>
