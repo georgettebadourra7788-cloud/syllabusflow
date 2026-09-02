@@ -463,9 +463,9 @@ export default function SyllabusPage() {
         {syllabus && (
           <section className="mt-16" style={{ fontFamily: previewFontFamily }}>
             <div
-              className={`rounded-2xl border bg-white shadow-sm shadow-slate-200/60 ${
-                effectiveTemplate === "modern" ? "p-10" : "p-8"
-              } ${theme.titleAlign === "center" ? "text-center" : ""}`}
+              className={`rounded-2xl border bg-white p-8 shadow-sm shadow-slate-200/60 ${
+                theme.titleAlign === "center" ? "text-center" : ""
+              }`}
               style={{ borderColor: theme.border }}
             >
               <h2 className="text-2xl font-bold" style={{ color: theme.text }}>
@@ -525,16 +525,14 @@ export default function SyllabusPage() {
               </div>
             )}
 
-            <div className={`mt-6 grid ${effectiveTemplate === "modern" ? "gap-8" : "gap-6"}`}>
+            <div className="mt-6 grid gap-6">
               {syllabus.modules.map((mod, i) => (
                 <div
                   key={i}
                   className={
                     theme.formalDividers
-                      ? `border-y-2 py-6 ${effectiveTemplate === "modern" ? "px-10" : "px-6"}`
-                      : `rounded-2xl border bg-white shadow-sm shadow-slate-200/60 ${
-                          effectiveTemplate === "modern" ? "p-8" : "p-6"
-                        }`
+                      ? "border-y-2 px-6 py-6"
+                      : "rounded-2xl border bg-white p-6 shadow-sm shadow-slate-200/60"
                   }
                   style={theme.formalDividers ? { borderColor: theme.accent } : { borderColor: theme.border }}
                 >
@@ -612,9 +610,7 @@ export default function SyllabusPage() {
 
             {syllabus.assessment && syllabus.assessment.length > 0 && (
               <div
-                className={`mt-6 rounded-2xl border bg-white shadow-sm shadow-slate-200/60 ${
-                  effectiveTemplate === "modern" ? "p-8" : "p-6"
-                }`}
+                className="mt-6 rounded-2xl border bg-white p-6 shadow-sm shadow-slate-200/60"
                 style={{ borderColor: theme.border }}
               >
                 <h3 className="text-sm font-semibold" style={{ color: theme.text }}>

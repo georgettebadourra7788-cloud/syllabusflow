@@ -1,5 +1,18 @@
 export type PdfTemplate = "basic" | "modern" | "classic";
 
+// Every numeric spacing value (page margins, section/module gaps, card
+// padding) is shared across all three templates and defined ONCE here —
+// templates vary font family, color, and structural shape (title
+// alignment, divider treatment) but never a spacing number. Two rounds of
+// "template X ended up with a slightly different number than the others"
+// regressions (each one silently shifting that template's page count for
+// otherwise-identical content) is what this is meant to make structurally
+// impossible rather than something to keep manually re-tuning.
+export const SHARED_SPACING = {
+  pageHorizontalPadding: 40,
+  moduleSpacing: 12,
+} as const;
+
 export interface TemplateTheme {
   label: string;
   fontFamily: "Helvetica" | "Times-Roman";
@@ -10,13 +23,8 @@ export interface TemplateTheme {
   border: string;
   pillBg: string;
   pillText: string;
-  // Layout tokens — these drive real structural differences (page margins,
-  // title alignment, module spacing/framing), not just color and font, so
-  // templates are distinguishable even from a plain-text extraction of the
-  // PDF and not just its color palette.
+  // Structural (shape, not spacing-scale) differentiators.
   titleAlign: "left" | "center";
-  pageHorizontalPadding: number;
-  moduleSpacing: number;
   // "Classic" formats each module as a formal centered heading between
   // horizontal rules (traditional academic syllabus style) instead of the
   // numbered-badge card the other templates use.
@@ -37,8 +45,6 @@ export const PDF_TEMPLATES: Record<PdfTemplate, TemplateTheme> = {
     pillBg: "#f1f5f9",
     pillText: "#475569",
     titleAlign: "left",
-    pageHorizontalPadding: 40,
-    moduleSpacing: 12,
     formalDividers: false,
   },
   modern: {
@@ -52,8 +58,6 @@ export const PDF_TEMPLATES: Record<PdfTemplate, TemplateTheme> = {
     pillBg: "#fffbeb",
     pillText: "#b45309",
     titleAlign: "left",
-    pageHorizontalPadding: 46,
-    moduleSpacing: 15,
     formalDividers: false,
   },
   classic: {
@@ -67,8 +71,6 @@ export const PDF_TEMPLATES: Record<PdfTemplate, TemplateTheme> = {
     pillBg: "#f5f0e8",
     pillText: "#7c2d12",
     titleAlign: "center",
-    pageHorizontalPadding: 44,
-    moduleSpacing: 12,
     formalDividers: true,
   },
 };

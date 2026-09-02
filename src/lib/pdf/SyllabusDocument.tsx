@@ -1,6 +1,6 @@
 import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 import type { Syllabus } from "@/lib/schemas/syllabus";
-import { PDF_TEMPLATES, type PdfTemplate } from "@/lib/pdf/templates";
+import { PDF_TEMPLATES, SHARED_SPACING, type PdfTemplate } from "@/lib/pdf/templates";
 
 interface SyllabusDocumentProps {
   syllabus: Syllabus;
@@ -14,7 +14,7 @@ function styles(theme: (typeof PDF_TEMPLATES)[PdfTemplate]) {
     page: {
       paddingTop: 48,
       paddingBottom: 48,
-      paddingHorizontal: theme.pageHorizontalPadding,
+      paddingHorizontal: SHARED_SPACING.pageHorizontalPadding,
       fontFamily: theme.fontFamily,
       fontSize: 10,
       color: theme.text,
@@ -61,7 +61,7 @@ function styles(theme: (typeof PDF_TEMPLATES)[PdfTemplate]) {
       borderColor: theme.border,
       borderRadius: 8,
       padding: 14,
-      marginBottom: theme.moduleSpacing,
+      marginBottom: SHARED_SPACING.moduleSpacing,
       breakInside: "avoid",
     },
     // Formal-divider modules (Classic) skip the bordered card + numbered
@@ -73,7 +73,7 @@ function styles(theme: (typeof PDF_TEMPLATES)[PdfTemplate]) {
       borderBottomWidth: 1.5,
       borderBottomColor: theme.accent,
       paddingVertical: 14,
-      marginBottom: theme.moduleSpacing,
+      marginBottom: SHARED_SPACING.moduleSpacing,
       breakInside: "avoid",
     },
     moduleFormalHeader: { alignItems: "center", marginBottom: 10 },
