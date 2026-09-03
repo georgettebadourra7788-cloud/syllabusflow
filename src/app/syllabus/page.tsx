@@ -337,7 +337,9 @@ export default function SyllabusPage() {
             </div>
 
             <label className="grid gap-1.5">
-              <span className="text-sm font-medium text-slate-700">Course type</span>
+              <span className="text-sm font-medium text-slate-700">
+                Course type <span className="font-normal text-slate-400">(optional — defaults to Lecture)</span>
+              </span>
               <select
                 value={courseType}
                 onChange={(e) => setCourseType(e.target.value as CourseType)}
