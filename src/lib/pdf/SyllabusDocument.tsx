@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 import type { Syllabus } from "@/lib/schemas/syllabus";
 import { PDF_TEMPLATES, SHARED_SPACING, type PdfTemplate } from "@/lib/pdf/templates";
@@ -160,40 +160,58 @@ function LessonList({
   mod,
   lessonTitles,
   s,
+  header,
 }: {
   mod: Syllabus["modules"][number];
   lessonTitles: Map<string, string>;
   s: Styles;
+  // Rendered inside the first lesson's unbreakable wrapper (see below)
+  // rather than as a separate module child, so it's never left orphaned
+  // alone on a page. Rendered on its own only if the module has no
+  // lessons to attach it to.
+  header: ReactNode;
 }) {
   return (
     <>
-      {mod.lessons.map((lesson) => (
-        <View key={lesson.key} style={s.lesson} wrap={false}>
-          <Text style={s.lessonTitle}>{lesson.title}</Text>
-          <Text style={s.lessonSummary}>{lesson.summary}</Text>
+      {mod.lessons.length === 0 && header}
+      {mod.lessons.map((lesson, i) => (
+        // The header's own height is trivial, but react-pdf sizes a split
+        // page's *left-behind* fragment of a wrapping container to
+        // whatever space remains on the page, not to its actual content —
+        // so a lone header (its first lesson deferred to the next page)
+        // renders with a large blank tail beneath it. Keeping the header
+        // and the first lesson in one unbreakable block means that when
+        // the first lesson doesn't fit, the header moves with it instead
+        // of being stranded above empty space.
+        <View key={lesson.key} wrap={false}>
+          {i === 0 && header}
+          <View style={s.lesson}>
+            <Text style={s.lessonTitle}>{lesson.title}</Text>
+            <Text style={s.lessonSummary}>{lesson.summary}</Text>
 
-          {lesson.learningObjectives.length > 0 && (
-            <View>
-              <Text style={s.objectivesLabel}>Objectives</Text>
-              {lesson.learningObjectives.map((objective, idx) => (
-                <Text key={idx} style={s.objectiveItem}>
-                  • {objective}
-                </Text>
-              ))}
-            </View>
-          )}
+            {lesson.learningObjectives.length > 0 && (
+              <View>
+                <Text style={s.objectivesLabel}>Objectives</Text>
+                {lesson.learningObjectives.map((objective, idx) => (
+                  <Text key={idx} style={s.objectiveItem}>
+                    • {objective}
+                  </Text>
+                ))}
+              </View>
+            )}
 
-          {lesson.prerequisiteLessonKeys.length > 0 && (
-            <View style={s.requiresRow}>
-              <Text style={s.requiresLabel}>Requires:</Text>
-              {lesson.prerequisiteLessonKeys.map((key, idx) => (
-                <Text key={key} style={s.pill}>
-                  {lessonTitles.get(key) ?? key}
-                  {idx < lesson.prerequisiteLessonKeys.length - 1 ? "," : ""}
-                </Text>
-              ))}
-            </View>
-          )}
+            {lesson.prerequisiteLessonKeys.length > 0 && (
+              <View style={s.requiresRow}>
+                <Text style={s.requiresLabel}>Requires:</Text>
+                {lesson.prerequisiteLessonKeys.map((key, idx) => (
+                  <Text key={key} style={s.pill}>
+                    {lessonTitles.get(key) ?? key}
+                    {idx < lesson.prerequisiteLessonKeys.length - 1 ? "," : ""}
+                  </Text>
+                ))}
+              </View>
+            )}
+          </View>
         </View>
       ))}
 
@@ -252,18 +270,30 @@ export function SyllabusDocument({ syllabus, lessonTitles, template, watermark }
               // which then also lands on a fresh, mostly-empty page even
               // though it may have fit on the original one).
               <View style={s.moduleFormal}>
-                <View style={s.moduleFormalHeader}>
-                  <Text style={s.moduleFormalTitle}>{mod.title}</Text>
-                </View>
-                <LessonList mod={mod} lessonTitles={lessonTitles} s={s} />
+                <LessonList
+                  mod={mod}
+                  lessonTitles={lessonTitles}
+                  s={s}
+                  header={
+                    <View style={s.moduleFormalHeader}>
+                      <Text style={s.moduleFormalTitle}>{mod.title}</Text>
+                    </View>
+                  }
+                />
               </View>
             ) : (
               <View style={s.module}>
-                <View style={s.moduleHeaderRow}>
-                  <Text style={s.moduleNumber}>{i + 1}</Text>
-                  <Text style={s.moduleTitle}>{mod.title}</Text>
-                </View>
-                <LessonList mod={mod} lessonTitles={lessonTitles} s={s} />
+                <LessonList
+                  mod={mod}
+                  lessonTitles={lessonTitles}
+                  s={s}
+                  header={
+                    <View style={s.moduleHeaderRow}>
+                      <Text style={s.moduleNumber}>{i + 1}</Text>
+                      <Text style={s.moduleTitle}>{mod.title}</Text>
+                    </View>
+                  }
+                />
               </View>
             )}
           </Fragment>
