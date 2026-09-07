@@ -13,5 +13,23 @@ service cloud.firestore {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow write: if false;
     }
+
+    // Export-button click events, logged client-side for basic usage
+    // analytics (which export formats get used, by which plan tier).
+    // Users can log their own clicks but never read, edit, or delete any
+    // of this collection — analytics review happens server-side/via the
+    // Admin SDK or Firebase console, not through the app. `createdAt`
+    // must equal the request's server time, so a client can't backdate
+    // or forge when an event happened.
+    match /exportEvents/{eventId} {
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasOnly(["uid", "exportType", "tier", "createdAt"])
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.exportType in
+                       ["pdf", "html", "slide-outline", "quiz-outline", "outcomes-xlsx"]
+                    && request.resource.data.tier in ["free", "paid"]
+                    && request.resource.data.createdAt == request.time;
+      allow read, update, delete: if false;
+    }
   }
 }

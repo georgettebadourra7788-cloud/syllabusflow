@@ -16,6 +16,7 @@ import { PDF_TEMPLATES, PREMIUM_TEMPLATES, type PdfTemplate } from "@/lib/pdf/te
 import { buildHtmlDocument } from "@/lib/html-export";
 import { buildQuizOutline, buildSlideOutline } from "@/lib/text-exports";
 import { buildOutcomesWorkbookBlob } from "@/lib/xlsx-export";
+import { logExportEvent } from "@/lib/analytics";
 
 const SKILL_LEVELS = ["beginner", "intermediate", "advanced"] as const;
 
@@ -207,22 +208,26 @@ export default function SyllabusPage() {
 
   function handleDownloadHtml() {
     if (!syllabus || !lessonTitles) return;
+    if (user) logExportEvent(user.uid, "html", isPaid ? "paid" : "free");
     downloadTextFile(buildHtmlDocument(syllabus, lessonTitles), `${slugify(syllabus.courseTitle)}.html`, "text/html");
   }
 
   function handleDownloadQuizOutline() {
     if (!syllabus || !isPaid) return;
+    if (user) logExportEvent(user.uid, "quiz-outline", isPaid ? "paid" : "free");
     downloadTextFile(buildQuizOutline(syllabus), `${slugify(syllabus.courseTitle)}-quiz-outline.txt`, "text/plain");
   }
 
   async function handleDownloadOutcomesXlsx() {
     if (!syllabus || !isPaid) return;
+    if (user) logExportEvent(user.uid, "outcomes-xlsx", isPaid ? "paid" : "free");
     const blob = await buildOutcomesWorkbookBlob(syllabus);
     downloadBlob(blob, `${slugify(syllabus.courseTitle)}-outcomes.xlsx`);
   }
 
   function handleDownloadSlideOutline() {
     if (!syllabus) return;
+    if (user) logExportEvent(user.uid, "slide-outline", isPaid ? "paid" : "free");
     downloadTextFile(
       buildSlideOutline(syllabus),
       `${slugify(syllabus.courseTitle)}-slide-outline.txt`,
@@ -232,6 +237,7 @@ export default function SyllabusPage() {
 
   async function handleDownloadPdf() {
     if (!syllabus || !lessonTitles) return;
+    if (user) logExportEvent(user.uid, "pdf", isPaid ? "paid" : "free");
 
     setPdfBusy(true);
     try {
