@@ -57,7 +57,7 @@ export default function UpgradePage() {
                 Email <strong>{CONTACT_EMAIL}</strong> with your payment confirmation and the email
                 address you signed in with
               </li>
-              <li>Your account will be upgraded within 24 hours</li>
+              <li>Your account is upgraded as soon as we receive your payment confirmation — usually within a few hours</li>
             </ol>
           </div>
 
