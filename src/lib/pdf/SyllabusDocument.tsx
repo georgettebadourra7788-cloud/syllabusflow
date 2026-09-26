@@ -128,14 +128,21 @@ function styles(theme: (typeof PDF_TEMPLATES)[PdfTemplate]) {
     },
     referencesBlock: { marginTop: 6, paddingLeft: 26 },
     referenceItem: { fontSize: 8.5, lineHeight: 1.4, color: theme.textMuted, marginBottom: 1 },
+    // No marginTop/marginBottom — for the same reason modules don't carry
+    // one (see the module style above): a trailing margin on a card whose
+    // content lands right at the page edge can tip react-pdf into pushing
+    // it — or, since these cards are atomic, an *entire* card that would
+    // otherwise fit — onto the next page, leaving whatever room was left
+    // on the previous one (and everything below it) unusably blank.
+    // Spacing before each of these sections is its own leading spacer
+    // (`sectionGap`, below) instead.
     assessmentBlock: {
       borderWidth: 1,
       borderColor: theme.border,
       borderRadius: 8,
       padding: 14,
-      marginTop: 4,
-      marginBottom: 12,
     },
+    sectionGap: { height: 16 },
     assessmentRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
     assessmentName: { fontSize: 10, fontWeight: 700 },
     assessmentWeight: { fontSize: 10, fontWeight: 700, color: theme.accent },
@@ -298,76 +305,87 @@ export function SyllabusDocument({ syllabus, lessonTitles, template, watermark }
             )}
           </Fragment>
         ))}
-        {syllabus.modules.length > 0 && <View style={s.moduleGap} />}
 
         {syllabus.materialsAndSafety && (
-          <View style={s.assessmentBlock} wrap={false}>
-            <Text style={s.sectionLabel}>Materials &amp; Safety</Text>
-            <View style={s.twoColRow}>
-              {syllabus.materialsAndSafety.materials.length > 0 && (
-                <View style={s.twoColItem}>
-                  <Text style={s.objectivesLabel}>Materials</Text>
-                  {syllabus.materialsAndSafety.materials.map((item, idx) => (
-                    <Text key={idx} style={s.objectiveItem}>
-                      • {item}
-                    </Text>
-                  ))}
-                </View>
-              )}
-              {syllabus.materialsAndSafety.safetyNotes.length > 0 && (
-                <View style={s.twoColItem}>
-                  <Text style={s.objectivesLabel}>Safety notes</Text>
-                  {syllabus.materialsAndSafety.safetyNotes.map((item, idx) => (
-                    <Text key={idx} style={s.objectiveItem}>
-                      • {item}
-                    </Text>
-                  ))}
-                </View>
-              )}
+          <>
+            <View style={s.sectionGap} />
+            <View style={s.assessmentBlock} wrap={false}>
+              <Text style={s.sectionLabel}>Materials &amp; Safety</Text>
+              <View style={s.twoColRow}>
+                {syllabus.materialsAndSafety.materials.length > 0 && (
+                  <View style={s.twoColItem}>
+                    <Text style={s.objectivesLabel}>Materials</Text>
+                    {syllabus.materialsAndSafety.materials.map((item, idx) => (
+                      <Text key={idx} style={s.objectiveItem}>
+                        • {item}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+                {syllabus.materialsAndSafety.safetyNotes.length > 0 && (
+                  <View style={s.twoColItem}>
+                    <Text style={s.objectivesLabel}>Safety notes</Text>
+                    {syllabus.materialsAndSafety.safetyNotes.map((item, idx) => (
+                      <Text key={idx} style={s.objectiveItem}>
+                        • {item}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+              </View>
             </View>
-          </View>
+          </>
         )}
 
         {syllabus.projectMilestones && syllabus.projectMilestones.length > 0 && (
-          <View style={s.assessmentBlock} wrap={false}>
-            <Text style={s.sectionLabel}>Project milestones</Text>
-            {syllabus.projectMilestones.map((milestone, i) => (
-              <View key={i}>
-                <View style={s.assessmentRow}>
-                  <Text style={s.assessmentName}>{milestone.title}</Text>
-                  <Text style={s.assessmentWeight}>Week {milestone.week}</Text>
+          <>
+            <View style={s.sectionGap} />
+            <View style={s.assessmentBlock}>
+              <Text style={s.sectionLabel}>Project milestones</Text>
+              {syllabus.projectMilestones.map((milestone, i) => (
+                <View key={i} wrap={false}>
+                  <View style={s.assessmentRow}>
+                    <Text style={s.assessmentName}>{milestone.title}</Text>
+                    <Text style={s.assessmentWeight}>Week {milestone.week}</Text>
+                  </View>
+                  <Text style={s.assessmentDescription}>{milestone.description}</Text>
                 </View>
-                <Text style={s.assessmentDescription}>{milestone.description}</Text>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          </>
         )}
 
         {syllabus.participationRubric && syllabus.participationRubric.length > 0 && (
-          <View style={s.assessmentBlock} wrap={false}>
-            <Text style={s.sectionLabel}>Participation rubric</Text>
-            {syllabus.participationRubric.map((criterion, i) => (
-              <View key={i}>
-                <Text style={s.assessmentName}>{criterion.criterion}</Text>
-                <Text style={s.assessmentDescription}>{criterion.description}</Text>
-              </View>
-            ))}
-          </View>
+          <>
+            <View style={s.sectionGap} />
+            <View style={s.assessmentBlock}>
+              <Text style={s.sectionLabel}>Participation rubric</Text>
+              {syllabus.participationRubric.map((criterion, i) => (
+                <View key={i} wrap={false}>
+                  <Text style={s.assessmentName}>{criterion.criterion}</Text>
+                  <Text style={s.assessmentDescription}>{criterion.description}</Text>
+                </View>
+              ))}
+            </View>
+          </>
         )}
 
         {syllabus.assessment && syllabus.assessment.length > 0 && (
-          <View style={s.assessmentBlock} wrap={false}>
-            <Text style={s.sectionLabel}>Assessment</Text>
-            {syllabus.assessment.map((component, i) => (
-              <View key={i}>
-                <View style={s.assessmentRow}>
-                  <Text style={s.assessmentName}>{component.name}</Text>
-                  <Text style={s.assessmentWeight}>{component.weight}</Text>
+          <>
+            <View style={s.sectionGap} />
+            <View style={s.assessmentBlock}>
+              <Text style={s.sectionLabel}>Assessment</Text>
+              {syllabus.assessment.map((component, i) => (
+                <View key={i} wrap={false}>
+                  <View style={s.assessmentRow}>
+                    <Text style={s.assessmentName}>{component.name}</Text>
+                    <Text style={s.assessmentWeight}>{component.weight}</Text>
+                  </View>
+                  <Text style={s.assessmentDescription}>{component.description}</Text>
                 </View>
-                <Text style={s.assessmentDescription}>{component.description}</Text>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          </>
         )}
 
         <Text style={s.footer} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} fixed />
